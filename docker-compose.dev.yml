@@ -1,0 +1,31 @@
+services:
+  backend:
+    build: .
+    container_name: movicol-backend
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USERNAME=movicol
+      - DB_PASSWORD=movicol_dev
+      - DB_DATABASE=movicol
+      - AI_SERVICE_URL=http://host.docker.internal:8000
+    depends_on:
+      - db
+
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: movicol-backend-db
+    environment:
+      POSTGRES_USER: movicol
+      POSTGRES_PASSWORD: movicol_dev
+      POSTGRES_DB: movicol
+    ports:
+      - "5432:5432"
+    volumes:
+      - movicol_pgdata:/var/lib/postgresql/data
+
+volumes:
+  movicol_pgdata:
