@@ -2,7 +2,10 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
-import { PaginatedResponse, PaginationParams } from '../../../common/interfaces/pagination.interface';
+import {
+  PaginatedResponse,
+  PaginationParams,
+} from '../../../common/interfaces/pagination.interface';
 import { Route } from '../entities/route.entity';
 
 @Injectable()
@@ -18,7 +21,7 @@ export class RoutesService {
       skip: params.offset,
       order: { name: 'ASC' },
     });
-    return { data, total, limit: params.limit, offset: params.offset };
+    return { data, total, limit: params.limit ?? 20, offset: params.offset ?? 0 };
   }
 
   async findOne(id: string): Promise<Route> {

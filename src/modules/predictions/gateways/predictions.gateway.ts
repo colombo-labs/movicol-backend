@@ -1,4 +1,9 @@
-import { ConnectedSocket, MessageBody, SubscribeMessage, WebSocketGateway } from '@nestjs/websockets';
+import {
+  ConnectedSocket,
+  MessageBody,
+  SubscribeMessage,
+  WebSocketGateway,
+} from '@nestjs/websockets';
 import { Socket } from 'socket.io';
 
 import { BaseGateway } from '../../../common/gateways/base.gateway';
@@ -22,10 +27,7 @@ export class PredictionsGateway extends BaseGateway {
   }
 
   @SubscribeMessage(WsEvent.PREDICTIONS_SUBSCRIBE)
-  handleSubscribe(
-    @MessageBody() payload: SubscribePayload,
-    @ConnectedSocket() client: Socket,
-  ) {
+  handleSubscribe(@MessageBody() payload: SubscribePayload, @ConnectedSocket() client: Socket) {
     // Join rooms for each station or zone
     if (payload.stationIds) {
       payload.stationIds.forEach((id) => this.joinRoom(client, `station:${id}`));
@@ -41,10 +43,7 @@ export class PredictionsGateway extends BaseGateway {
   }
 
   @SubscribeMessage(WsEvent.PREDICTIONS_UNSUBSCRIBE)
-  handleUnsubscribe(
-    @MessageBody() payload: SubscribePayload,
-    @ConnectedSocket() client: Socket,
-  ) {
+  handleUnsubscribe(@MessageBody() payload: SubscribePayload, @ConnectedSocket() client: Socket) {
     if (payload.stationIds) {
       payload.stationIds.forEach((id) => this.leaveRoom(client, `station:${id}`));
     }
