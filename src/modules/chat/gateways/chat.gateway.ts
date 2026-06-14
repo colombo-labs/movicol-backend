@@ -1,4 +1,9 @@
-import { ConnectedSocket, MessageBody, SubscribeMessage, WebSocketGateway } from '@nestjs/websockets';
+import {
+  ConnectedSocket,
+  MessageBody,
+  SubscribeMessage,
+  WebSocketGateway,
+} from '@nestjs/websockets';
 import { Socket } from 'socket.io';
 
 import { BaseGateway } from '../../../common/gateways/base.gateway';
@@ -49,7 +54,7 @@ export class ChatGateway extends BaseGateway {
         sessionId,
         sources: response.sources,
       });
-    } catch (error) {
+    } catch {
       this.emitToClient(client, WsEvent.ERROR, {
         message: 'Agent error',
         sessionId,

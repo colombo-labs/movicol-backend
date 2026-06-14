@@ -16,10 +16,7 @@ export class HttpClientService {
   async get<T>(path: string): Promise<T> {
     const response = await fetch(`${this.aiBaseUrl}${path}`);
     if (!response.ok) {
-      throw new HttpException(
-        `AI service error: ${response.statusText}`,
-        HttpStatus.BAD_GATEWAY,
-      );
+      throw new HttpException(`AI service error: ${response.statusText}`, HttpStatus.BAD_GATEWAY);
     }
     return response.json() as Promise<T>;
   }
@@ -31,10 +28,7 @@ export class HttpClientService {
       body: JSON.stringify(body),
     });
     if (!response.ok) {
-      throw new HttpException(
-        `AI service error: ${response.statusText}`,
-        HttpStatus.BAD_GATEWAY,
-      );
+      throw new HttpException(`AI service error: ${response.statusText}`, HttpStatus.BAD_GATEWAY);
     }
     return response.json() as Promise<T>;
   }

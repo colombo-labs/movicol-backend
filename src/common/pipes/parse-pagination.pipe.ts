@@ -6,8 +6,8 @@ import { PaginationParams } from '../interfaces/pagination.interface';
 export class ParsePaginationPipe implements PipeTransform<any, PaginationParams> {
   transform(value: any, _metadata: ArgumentMetadata): PaginationParams {
     return {
-      limit: Math.min(parseInt(value?.limit, 10) || 100, 500),
-      offset: Math.max(parseInt(value?.offset, 10) || 0, 0),
+      limit: Math.min(Number.parseInt(value?.limit, 10) || 100, 500),
+      offset: Math.max(Number.parseInt(value?.offset, 10) || 0, 0),
     };
   }
 }

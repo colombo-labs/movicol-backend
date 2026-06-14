@@ -20,7 +20,11 @@ export class PredictionsService {
     });
   }
 
-  async predictAll(dayOfWeek: number, hour: number, horizonMinutes: number): Promise<PredictResponseDto[]> {
+  async predictAll(
+    dayOfWeek: number,
+    hour: number,
+    horizonMinutes: number,
+  ): Promise<PredictResponseDto[]> {
     return this.httpClient.post<PredictResponseDto[]>('/predictions/batch', {
       day_of_week: dayOfWeek,
       hour,
