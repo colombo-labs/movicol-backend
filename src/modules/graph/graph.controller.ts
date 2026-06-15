@@ -278,4 +278,64 @@ export class GraphController {
 
     return { total: rutas.length, radio: r, rutas: rutas.slice(0, 20) };
   }
+
+  @Get('rutas-cercanas')
+  @ApiOperation({ summary: 'Find routes passing near a geographic point' })
+  getRutasCercanas(
+    @Query('lat') lat: string,
+    @Query('lng') lng: string,
+    @Query('radius') radius?: string,
+  ) {
+    const fs = require('fs');
+    const path = require('path');
+    const targetLat = Number.parseFloat(lat);
+    const targetLng = Number.parseFloat(lng);
+    const r = radius ? Number.parseFloat(radius) : 500;
+
+    const raw = JSON.parse(
+      fs.readFileSync(path.join(process.cwd(), 'data', 'sitp_rutas_paraderos.geojson'), 'utf-8'),
+    );
+
+    const haversine = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+      const R = 6371000;
+      const dLat = ((lat2 - lat1) * Math.PI) / 180;
+      const dLon = ((lon2 - lon1) * Math.PI) / 180;
+      const a =
+        Math.pow(Math.sin(dLat / 2), 2) +
+        Math.cos((lat1 * Math.PI) / 180) *
+          Math.cos((lat2 * Math.PI) / 180) *
+          Math.pow(Math.sin(dLon / 2), 2);
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    };
+
+    const rutasMap: Record<
+      string,
+      { ruta: string; cenefa: string; paraderosCercanos: { nombre: string; distancia: number }[] }
+    > = {};
+
+    for (const feat of raw.features) {
+      const props = feat.properties;
+      const geom = feat.geometry;
+      if (!geom || !geom.coordinates || !props.ruta) continue;
+      const dist = haversine(targetLat, targetLng, geom.coordinates[1], geom.coordinates[0]);
+      if (dist <= r) {
+        const ruta = props.ruta;
+        if (!rutasMap[ruta]) {
+          rutasMap[ruta] = { ruta, cenefa: props.cenefa || ruta, paraderosCercanos: [] };
+        }
+        rutasMap[ruta].paraderosCercanos.push({
+          nombre: props.nombre || '',
+          distancia: Math.round(dist),
+        });
+      }
+    }
+
+    const rutas = Object.values(rutasMap).map((rt) => {
+      rt.paraderosCercanos.sort((a, b) => a.distancia - b.distancia);
+      return { ...rt, distanciaMinima: rt.paraderosCercanos[0]?.distancia || 9999 };
+    });
+    rutas.sort((a, b) => a.distanciaMinima - b.distanciaMinima);
+
+    return { total: rutas.length, radio: r, rutas: rutas.slice(0, 20) };
+  }
 }
