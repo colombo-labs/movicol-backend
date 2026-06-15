@@ -1,0 +1,22 @@
+APPLY_FIXES: none
+VALIDATE_ALL_CODEBASE: false
+FILTER_REGEX_EXCLUDE: '(node_modules|dist|coverage|\.github)/'
+
+# Solo habilitar linters útiles
+ENABLE_LINTERS:
+  - DOCKERFILE_HADOLINT
+  - JSON_JSONLINT
+  - JSON_NPM_PACKAGE_JSON_LINT
+  - MARKDOWN_MARKDOWNLINT
+  - MARKDOWN_MARKDOWN_LINK_CHECK
+  - REPOSITORY_GITLEAKS
+  - REPOSITORY_SECRETLINT
+  - REPOSITORY_GIT_DIFF
+  - REPOSITORY_TRUFFLEHOG
+
+# Desactivar linters ruidosos/redundantes
+# - CSS: stylelint no entiende Tailwind @apply
+# - SPELL: demasiados falsos positivos en código
+# - TYPESCRIPT ts-standard: ya usamos ESLint
+# - checkov/kics/devskim/trivy: overkill para dev, CodeQL ya cubre seguridad
+# - lychee: links rotos no deben bloquear CI
