@@ -4,6 +4,22 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { HttpClientService } from '../../common/services/http-client.service';
 import { RedisService } from '../../common/services/redis.service';
 
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+
+// Haversine distance in meters
+function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.pow(Math.sin(dLat / 2), 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.pow(Math.sin(dLon / 2), 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 const GEO_TTL = 600; // 10 min for static infrastructure data
 
 @ApiTags('Graph')
@@ -119,8 +135,6 @@ export class GraphController {
   @Get('sitp/paraderos')
   @ApiOperation({ summary: 'Get SITP bus stops GeoJSON' })
   async getSitpParaderos() {
-    const fs = require('fs');
-    const path = require('path');
     const filePath = path.join(process.cwd(), 'data', 'sitp_paraderos.geojson');
     const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     return data;
@@ -129,8 +143,6 @@ export class GraphController {
   @Get('sitp/rutas')
   @ApiOperation({ summary: 'Get SITP routes with ordered stops' })
   async getSitpRutas() {
-    const fs = require('fs');
-    const path = require('path');
     const filePath = path.join(process.cwd(), 'data', 'sitp_rutas_paraderos.geojson');
     const raw = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     const rutasMap: Record<
@@ -167,8 +179,6 @@ export class GraphController {
   @Get('accesibilidad')
   @ApiOperation({ summary: 'Get accessibility metrics from real data' })
   async getAccesibilidad() {
-    const fs = require('fs');
-    const path = require('path');
     // Load real data
     const paraderos = JSON.parse(
       fs.readFileSync(path.join(process.cwd(), 'data', 'sitp_paraderos.geojson'), 'utf-8'),
@@ -221,8 +231,6 @@ export class GraphController {
     @Query('lng') lng: string,
     @Query('radius') radius?: string,
   ) {
-    const fs = require('fs');
-    const path = require('path');
     const targetLat = Number.parseFloat(lat);
     const targetLng = Number.parseFloat(lng);
     const r = radius ? Number.parseFloat(radius) : 500; // meters
@@ -232,17 +240,6 @@ export class GraphController {
     );
 
     // Haversine distance in meters
-    const haversine = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-      const R = 6371000;
-      const dLat = ((lat2 - lat1) * Math.PI) / 180;
-      const dLon = ((lon2 - lon1) * Math.PI) / 180;
-      const a =
-        Math.pow(Math.sin(dLat / 2), 2) +
-        Math.cos((lat1 * Math.PI) / 180) *
-          Math.cos((lat2 * Math.PI) / 180) *
-          Math.pow(Math.sin(dLon / 2), 2);
-      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    };
 
     // Find paraderos within radius and collect routes
     const rutasMap: Record<
@@ -286,8 +283,6 @@ export class GraphController {
     @Query('lng') lng: string,
     @Query('radius') radius?: string,
   ) {
-    const fs = require('fs');
-    const path = require('path');
     const targetLat = Number.parseFloat(lat);
     const targetLng = Number.parseFloat(lng);
     const r = radius ? Number.parseFloat(radius) : 500;
@@ -295,18 +290,6 @@ export class GraphController {
     const raw = JSON.parse(
       fs.readFileSync(path.join(process.cwd(), 'data', 'sitp_rutas_paraderos.geojson'), 'utf-8'),
     );
-
-    const haversine = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-      const R = 6371000;
-      const dLat = ((lat2 - lat1) * Math.PI) / 180;
-      const dLon = ((lon2 - lon1) * Math.PI) / 180;
-      const a =
-        Math.pow(Math.sin(dLat / 2), 2) +
-        Math.cos((lat1 * Math.PI) / 180) *
-          Math.cos((lat2 * Math.PI) / 180) *
-          Math.pow(Math.sin(dLon / 2), 2);
-      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    };
 
     const rutasMap: Record<
       string,
