@@ -20,6 +20,10 @@ function haversine(lat1: number, lon1: number, lat2: number, lon2: number): numb
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+function loadGeoJson(filename: string) {
+  return JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', filename), 'utf-8'));
+}
+
 const GEO_TTL = 600; // 10 min for static infrastructure data
 
 @ApiTags('Graph')
@@ -135,16 +139,14 @@ export class GraphController {
   @Get('sitp/paraderos')
   @ApiOperation({ summary: 'Get SITP bus stops GeoJSON' })
   async getSitpParaderos() {
-    const filePath = path.join(process.cwd(), 'data', 'sitp_paraderos.geojson');
-    const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    const data = loadGeoJson('sitp_paraderos.geojson');
     return data;
   }
 
   @Get('sitp/rutas')
   @ApiOperation({ summary: 'Get SITP routes with ordered stops' })
   async getSitpRutas() {
-    const filePath = path.join(process.cwd(), 'data', 'sitp_rutas_paraderos.geojson');
-    const raw = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    const raw = loadGeoJson('sitp_rutas_paraderos.geojson');
     const rutasMap: Record<
       string,
       {
@@ -156,7 +158,7 @@ export class GraphController {
     for (const feat of raw.features) {
       const props = feat.properties;
       const geom = feat.geometry;
-      if (!geom || !geom.coordinates || !props.ruta) continue;
+      if (!geom?.coordinates || !props?.ruta) continue;
       const ruta = props.ruta;
       if (!rutasMap[ruta]) {
         rutasMap[ruta] = { ruta, cenefa: props.cenefa || '', paraderos: [] };
@@ -180,12 +182,8 @@ export class GraphController {
   @ApiOperation({ summary: 'Get accessibility metrics from real data' })
   async getAccesibilidad() {
     // Load real data
-    const paraderos = JSON.parse(
-      fs.readFileSync(path.join(process.cwd(), 'data', 'sitp_paraderos.geojson'), 'utf-8'),
-    );
-    const rutasData = JSON.parse(
-      fs.readFileSync(path.join(process.cwd(), 'data', 'sitp_rutas_paraderos.geojson'), 'utf-8'),
-    );
+    const paraderos = loadGeoJson('sitp_paraderos.geojson');
+    const rutasData = loadGeoJson('sitp_rutas_paraderos.geojson');
 
     const totalParaderos = paraderos.features ? paraderos.features.length : 0;
     const totalRutas = new Set(
@@ -235,9 +233,7 @@ export class GraphController {
     const targetLng = Number.parseFloat(lng);
     const r = radius ? Number.parseFloat(radius) : 500; // meters
 
-    const raw = JSON.parse(
-      fs.readFileSync(path.join(process.cwd(), 'data', 'sitp_rutas_paraderos.geojson'), 'utf-8'),
-    );
+    const raw = loadGeoJson('sitp_rutas_paraderos.geojson');
 
     // Haversine distance in meters
 
@@ -250,7 +246,7 @@ export class GraphController {
     for (const feat of raw.features) {
       const props = feat.properties;
       const geom = feat.geometry;
-      if (!geom || !geom.coordinates || !props.ruta) continue;
+      if (!geom?.coordinates || !props?.ruta) continue;
       const pLat = geom.coordinates[1];
       const pLng = geom.coordinates[0];
       const dist = haversine(targetLat, targetLng, pLat, pLng);
@@ -270,52 +266,6 @@ export class GraphController {
     const rutas = Object.values(rutasMap).map((r) => {
       r.paraderosCercanos.sort((a, b) => a.distancia - b.distancia);
       return { ...r, distanciaMinima: r.paraderosCercanos[0]?.distancia || 9999 };
-    });
-    rutas.sort((a, b) => a.distanciaMinima - b.distanciaMinima);
-
-    return { total: rutas.length, radio: r, rutas: rutas.slice(0, 20) };
-  }
-
-  @Get('rutas-cercanas')
-  @ApiOperation({ summary: 'Find routes passing near a geographic point' })
-  getRutasCercanas(
-    @Query('lat') lat: string,
-    @Query('lng') lng: string,
-    @Query('radius') radius?: string,
-  ) {
-    const targetLat = Number.parseFloat(lat);
-    const targetLng = Number.parseFloat(lng);
-    const r = radius ? Number.parseFloat(radius) : 500;
-
-    const raw = JSON.parse(
-      fs.readFileSync(path.join(process.cwd(), 'data', 'sitp_rutas_paraderos.geojson'), 'utf-8'),
-    );
-
-    const rutasMap: Record<
-      string,
-      { ruta: string; cenefa: string; paraderosCercanos: { nombre: string; distancia: number }[] }
-    > = {};
-
-    for (const feat of raw.features) {
-      const props = feat.properties;
-      const geom = feat.geometry;
-      if (!geom || !geom.coordinates || !props.ruta) continue;
-      const dist = haversine(targetLat, targetLng, geom.coordinates[1], geom.coordinates[0]);
-      if (dist <= r) {
-        const ruta = props.ruta;
-        if (!rutasMap[ruta]) {
-          rutasMap[ruta] = { ruta, cenefa: props.cenefa || ruta, paraderosCercanos: [] };
-        }
-        rutasMap[ruta].paraderosCercanos.push({
-          nombre: props.nombre || '',
-          distancia: Math.round(dist),
-        });
-      }
-    }
-
-    const rutas = Object.values(rutasMap).map((rt) => {
-      rt.paraderosCercanos.sort((a, b) => a.distancia - b.distancia);
-      return { ...rt, distanciaMinima: rt.paraderosCercanos[0]?.distancia || 9999 };
     });
     rutas.sort((a, b) => a.distanciaMinima - b.distanciaMinima);
 
