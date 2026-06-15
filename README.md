@@ -1,3 +1,8 @@
+![CI](https://github.com/colombo-labs/movicol-backend/actions/workflows/ci.yml/badge.svg)
+[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=colombo-labs_movicol-backend&metric=alert_status)](https://sonarcloud.io/dashboard?id=colombo-labs_movicol-backend)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=colombo-labs_movicol-backend&metric=bugs)](https://sonarcloud.io/dashboard?id=colombo-labs_movicol-backend)
+[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=colombo-labs_movicol-backend&metric=code_smells)](https://sonarcloud.io/dashboard?id=colombo-labs_movicol-backend)
+
 # MoviCol Backend
 
 NestJS REST API for MoviCol transport system. Serves real SITP/TM data and proxies AI service.
