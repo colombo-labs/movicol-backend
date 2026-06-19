@@ -20,8 +20,8 @@ export class PredictionsController {
   predictAll(
     @Query('dayOfWeek') dayOfWeek: number,
     @Query('hour') hour: number,
-    @Query('horizonMinutes') horizonMinutes: number = 30,
+    @Query('horizonMinutes') horizonMinutes?: number,
   ) {
-    return this.predictionsService.predictAll(dayOfWeek, hour, horizonMinutes);
+    return this.predictionsService.predictAll(dayOfWeek, hour, horizonMinutes ?? 30);
   }
 }

@@ -16,7 +16,9 @@ import { WsEvent, WsResponse } from '../interfaces/ws-events.interface';
  * All feature gateways extend this to avoid duplicating boilerplate.
  */
 @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
-export abstract class BaseGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
+export abstract class BaseGateway
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   protected server: Server;
 

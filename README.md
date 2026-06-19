@@ -1,82 +1,48 @@
-# 🚀 MoviCol Backend
+![CI](https://github.com/colombo-labs/movicol-backend/actions/workflows/ci.yml/badge.svg)
+[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=colombo-labs_movicol-backend&metric=alert_status)](https://sonarcloud.io/dashboard?id=colombo-labs_movicol-backend)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=colombo-labs_movicol-backend&metric=bugs)](https://sonarcloud.io/dashboard?id=colombo-labs_movicol-backend)
+[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=colombo-labs_movicol-backend&metric=code_smells)](https://sonarcloud.io/dashboard?id=colombo-labs_movicol-backend)
 
-API Gateway para la plataforma de movilidad inteligente MoviCol.
+# MoviCol Backend
+
+NestJS REST API for MoviCol transport system. Serves real SITP/TM data and proxies AI service.
 
 ## Stack
+- NestJS + TypeScript
+- Redis (query cache)
+- GeoJSON (real infrastructure data)
 
-- **NestJS** 10.4 + **TypeScript** 5.5
-- **TypeORM** 0.3 + **PostgreSQL** 16 + **PostGIS** 3.4
-- **Socket.io** 4.7 (WebSocket híbrido)
-- **Swagger** 7.4 (documentación API)
-- **Jest** 29 (testing)
-- **ESLint** 8 + **Prettier** 3
+## Key Endpoints (v0.2.0)
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/graph/rutas-cercanas?lat=X&lng=Y&radius=500` | Routes near a point |
+| GET | `/graph/accesibilidad` | Infrastructure metrics |
+| GET | `/graph/sitp/rutas` | All 689 routes with stops |
+| GET | `/graph/stations` | Graph stations |
+| GET | `/graph/heatmap?hour=8` | Congestion heatmap |
+| POST | `/route-prediction` | Route prediction (AI proxy) |
 
-## Arquitectura
+## Data
+- `data/sitp_rutas_paraderos.geojson` — 42,601 stops, 689 routes
+- `data/sitp_paraderos.geojson` — SITP bus stops
 
-Modular SOLID — cada módulo autocontenido con controller, service, DTOs, entities y gateway WS.
-
-```
-src/
-├── main.ts                          # Bootstrap + Swagger + global pipes
-├── app/app.module.ts                # Root module
-├── common/                          # @Global — shared layer
-│   ├── common.module.ts
-│   ├── filters/                     # Exception filters
-│   ├── interceptors/                # Response transform
-│   ├── interfaces/                  # Pagination, WS events
-│   ├── pipes/                       # Custom pipes
-│   ├── gateways/base.gateway.ts     # Base WS (heartbeat, rooms)
-│   └── services/http-client.service.ts  # Proxy a AI service
-├── config/configuration.ts
-├── database/database.module.ts
-└── modules/
-    ├── health/                      # GET /health
-    ├── stations/                    # CRUD /stations (PostGIS)
-    │   ├── controllers/ services/ entities/ dtos/
-    ├── routes/                      # CRUD /routes
-    │   ├── controllers/ services/ entities/ dtos/
-    ├── predictions/                 # POST /predictions (proxy → AI)
-    │   ├── controllers/ services/ dtos/ entities/ gateways/
-    └── chat/                        # POST /chat (proxy → AI agent)
-        ├── controllers/ services/ dtos/ entities/ gateways/
-```
-
-## Quick Start
-
+## Run
 ```bash
-npm install
-npm run dev     # http://localhost:3001
+npm install && npm run dev     # Dev with watch
+npm run build                  # Compile
+npm run lint                   # ESLint
+npm run format                 # Prettier
 ```
-
-## Scripts
-
-| Script | Descripción |
-|--------|-------------|
-| `npm run dev` | Dev con hot reload |
-| `npm run build` | Build producción |
-| `npm run start:prod` | Run producción |
-| `npm test` | Jest tests |
-| `npm run lint` | ESLint fix |
-
-## API Docs
-
-Swagger UI: `http://localhost:3001/api/docs`
-
-## WebSocket
-
-| Namespace | Descripción |
-|-----------|-------------|
-| `/predictions` | Predicciones live por estación/zona |
-| `/chat` | Streaming del agente LLM |
 
 ## Docker
-
 ```bash
-docker compose -f docker-compose.dev.yml up -d
+docker build -t colombolabs/movicol-backend:latest .
+docker run -d -p 3001:3001 -e REDIS_HOST=movicol-redis \
+  -e AI_SERVICE_URL=http://movicol-ai:8000 \
+  --network movicol-infra_default colombolabs/movicol-backend:latest
 ```
 
-## Requisitos
-
-- Node.js 20+
-- PostgreSQL 16 + PostGIS 3.4
-- AI service en :8000
+## Env
+- `REDIS_HOST` — Redis host (default: localhost)
+- `AI_SERVICE_URL` — AI service (default: http://localhost:8000)
+- `PORT` — Server port (default: 3001)

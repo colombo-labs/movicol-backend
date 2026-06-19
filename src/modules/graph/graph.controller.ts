@@ -1,0 +1,274 @@
+import { Controller, Get, Param, Query } from '@nestjs/common';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
+
+import { HttpClientService } from '../../common/services/http-client.service';
+import { RedisService } from '../../common/services/redis.service';
+
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+
+// Haversine distance in meters
+function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.pow(Math.sin(dLat / 2), 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.pow(Math.sin(dLon / 2), 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function loadGeoJson(filename: string) {
+  return JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', filename), 'utf-8'));
+}
+
+const GEO_TTL = 600; // 10 min for static infrastructure data
+
+@ApiTags('Graph')
+@Controller('graph')
+export class GraphController {
+  constructor(
+    private readonly httpClient: HttpClientService,
+    private readonly redis: RedisService,
+  ) {}
+
+  @Get('stats')
+  @ApiOperation({ summary: 'Get graph statistics' })
+  getStats() {
+    return this.httpClient.get('/graph/stats');
+  }
+
+  @Get('analysis')
+  @ApiOperation({ summary: 'Get advanced graph analysis' })
+  getAnalysis() {
+    return this.httpClient.get('/graph/analysis');
+  }
+
+  @Get('heatmap')
+  @ApiOperation({ summary: 'Get GNN congestion heatmap' })
+  async getHeatmap(@Query('hour') hour?: string) {
+    const h = hour ? Number.parseInt(hour, 10) : 8;
+    const key = `graph:heatmap:${h}`;
+    const cached = await this.redis.get(key);
+    if (cached) return cached;
+    const data = await this.httpClient.get(`/graph/heatmap?hour=${h}`);
+    await this.redis.set(key, data, 60); // 1 min TTL for dynamic data
+    return data;
+  }
+
+  @Get('nearby')
+  @ApiOperation({ summary: 'Find stations near a point' })
+  getNearby(
+    @Query('lat') lat: string,
+    @Query('lon') lon: string,
+    @Query('radius_km') radiusKm?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const r = radiusKm ? Number.parseFloat(radiusKm) : 1;
+    const l = limit ? Number.parseInt(limit, 10) : 10;
+    return this.httpClient.get(`/graph/nearby?lat=${lat}&lon=${lon}&radius_km=${r}&limit=${l}`);
+  }
+
+  @Get('compare-hours')
+  @ApiOperation({ summary: 'Compare congestion across hours' })
+  compareHours(@Query('station_id') stationId: string) {
+    return this.httpClient.get(`/graph/compare-hours?station_id=${encodeURIComponent(stationId)}`);
+  }
+
+  @Get('stations')
+  @ApiOperation({ summary: 'List stations from graph' })
+  async getStations(@Query('limit') limit?: string, @Query('offset') offset?: string) {
+    const l = limit ? Number.parseInt(limit, 10) : 100;
+    const o = offset ? Number.parseInt(offset, 10) : 0;
+    const key = `graph:stations:${l}:${o}`;
+    const cached = await this.redis.get(key);
+    if (cached) return cached;
+    const data = await this.httpClient.get(`/graph/stations?limit=${l}&offset=${o}`);
+    await this.redis.set(key, data, GEO_TTL);
+    return data;
+  }
+
+  @Get('stations/:id')
+  @ApiOperation({ summary: 'Get station by ID' })
+  getStation(@Param('id') id: string) {
+    return this.httpClient.get(`/graph/stations/${encodeURIComponent(id)}`);
+  }
+
+  @Get('edges')
+  @ApiOperation({ summary: 'Get graph edges for map rendering' })
+  async getEdges(@Query('type') type?: string, @Query('limit') limit?: string) {
+    const t = type ?? 'all';
+    const l = limit ? Number.parseInt(limit, 10) : 500;
+    const key = `graph:edges:${t}:${l}`;
+    const cached = await this.redis.get(key);
+    if (cached) return cached;
+    const data = await this.httpClient.get(`/graph/edges?type=${t}&limit=${l}`);
+    await this.redis.set(key, data, GEO_TTL);
+    return data;
+  }
+
+  @Get('stations/:id/neighbors')
+  @ApiOperation({ summary: 'Get station neighbors' })
+  getNeighbors(@Param('id') id: string) {
+    return this.httpClient.get(`/graph/stations/${encodeURIComponent(id)}/neighbors`);
+  }
+
+  @Get('tm/troncales')
+  @ApiOperation({ summary: 'Get TransMilenio trunk lines GeoJSON (Redis cached)' })
+  async getTmTroncales() {
+    const key = 'graph:tm:troncales';
+    const cached = await this.redis.get(key);
+    if (cached) return cached;
+    const data = await this.httpClient.get('/graph/tm/troncales');
+    await this.redis.set(key, data, GEO_TTL);
+    return data;
+  }
+
+  @Get('tm/estaciones')
+  @ApiOperation({ summary: 'Get TransMilenio stations GeoJSON (Redis cached)' })
+  async getTmEstaciones() {
+    const key = 'graph:tm:estaciones';
+    const cached = await this.redis.get(key);
+    if (cached) return cached;
+    const data = await this.httpClient.get('/graph/tm/estaciones');
+    await this.redis.set(key, data, GEO_TTL);
+    return data;
+  }
+  @Get('sitp/paraderos')
+  @ApiOperation({ summary: 'Get SITP bus stops GeoJSON' })
+  async getSitpParaderos() {
+    const data = loadGeoJson('sitp_paraderos.geojson');
+    return data;
+  }
+
+  @Get('sitp/rutas')
+  @ApiOperation({ summary: 'Get SITP routes with ordered stops' })
+  async getSitpRutas() {
+    const raw = loadGeoJson('sitp_rutas_paraderos.geojson');
+    const rutasMap: Record<
+      string,
+      {
+        ruta: string;
+        cenefa: string;
+        paraderos: { lat: number; lon: number; nombre: string; orden: string }[];
+      }
+    > = {};
+    for (const feat of raw.features) {
+      const props = feat.properties;
+      const geom = feat.geometry;
+      if (!geom?.coordinates || !props?.ruta) continue;
+      const ruta = props.ruta;
+      if (!rutasMap[ruta]) {
+        rutasMap[ruta] = { ruta, cenefa: props.cenefa || '', paraderos: [] };
+      }
+      rutasMap[ruta].paraderos.push({
+        lat: geom.coordinates[1],
+        lon: geom.coordinates[0],
+        nombre: props.nombre || '',
+        orden: props.orden || '',
+      });
+    }
+    // Sort paraderos by orden within each ruta
+    const rutas = Object.values(rutasMap).map((r) => {
+      r.paraderos.sort((a, b) => a.orden.localeCompare(b.orden));
+      return r;
+    });
+    return { total: rutas.length, rutas };
+  }
+
+  @Get('accesibilidad')
+  @ApiOperation({ summary: 'Get accessibility metrics from real data' })
+  async getAccesibilidad() {
+    // Load real data
+    const paraderos = loadGeoJson('sitp_paraderos.geojson');
+    const rutasData = loadGeoJson('sitp_rutas_paraderos.geojson');
+
+    const totalParaderos = paraderos.features ? paraderos.features.length : 0;
+    const totalRutas = new Set(
+      rutasData.features.filter((f: any) => f.properties?.ruta).map((f: any) => f.properties.ruta),
+    ).size;
+    const totalPuntos = rutasData.features.length;
+    const rutasTroncales = new Set(
+      rutasData.features
+        .filter((f: any) => f.properties?.ruta && /^[A-Z]/.test(f.properties.ruta))
+        .map((f: any) => f.properties.ruta),
+    ).size;
+    const rutasZonales = totalRutas - rutasTroncales;
+
+    // Calculate coverage based on lat/lon spread
+    const lats = paraderos.features
+      .filter((f: any) => f.geometry?.coordinates)
+      .map((f: any) => f.geometry.coordinates[1]);
+    const lons = paraderos.features
+      .filter((f: any) => f.geometry?.coordinates)
+      .map((f: any) => f.geometry.coordinates[0]);
+    const latRange = Math.max(...lats) - Math.min(...lats);
+    const lonRange = Math.max(...lons) - Math.min(...lons);
+    const areaCovered = latRange * lonRange * 111 * 111; // approx km2
+    const bogotaArea = 1775; // km2
+    const coveragePercent = Math.min(Math.round((areaCovered / bogotaArea) * 100), 95);
+
+    return {
+      totalParaderos,
+      totalRutas,
+      rutasTroncales,
+      rutasZonales,
+      totalPuntos,
+      cobertura: coveragePercent,
+      areaCubierta: Math.round(areaCovered),
+      areaBogota: bogotaArea,
+    };
+  }
+
+  @Get('rutas-cercanas')
+  @ApiOperation({ summary: 'Find routes passing near a geographic point' })
+  getRutasCercanas(
+    @Query('lat') lat: string,
+    @Query('lng') lng: string,
+    @Query('radius') radius?: string,
+  ) {
+    const targetLat = Number.parseFloat(lat);
+    const targetLng = Number.parseFloat(lng);
+    const r = radius ? Number.parseFloat(radius) : 500; // meters
+
+    const raw = loadGeoJson('sitp_rutas_paraderos.geojson');
+
+    // Haversine distance in meters
+
+    // Find paraderos within radius and collect routes
+    const rutasMap: Record<
+      string,
+      { ruta: string; cenefa: string; paraderosCercanos: { nombre: string; distancia: number }[] }
+    > = {};
+
+    for (const feat of raw.features) {
+      const props = feat.properties;
+      const geom = feat.geometry;
+      if (!geom?.coordinates || !props?.ruta) continue;
+      const pLat = geom.coordinates[1];
+      const pLng = geom.coordinates[0];
+      const dist = haversine(targetLat, targetLng, pLat, pLng);
+      if (dist <= r) {
+        const ruta = props.ruta;
+        if (!rutasMap[ruta]) {
+          rutasMap[ruta] = { ruta, cenefa: props.cenefa || ruta, paraderosCercanos: [] };
+        }
+        rutasMap[ruta].paraderosCercanos.push({
+          nombre: props.nombre || '',
+          distancia: Math.round(dist),
+        });
+      }
+    }
+
+    // Sort paraderos by distance within each ruta, and sort rutas by min distance
+    const rutas = Object.values(rutasMap).map((r) => {
+      r.paraderosCercanos.sort((a, b) => a.distancia - b.distancia);
+      return { ...r, distanciaMinima: r.paraderosCercanos[0]?.distancia || 9999 };
+    });
+    rutas.sort((a, b) => a.distanciaMinima - b.distanciaMinima);
+
+    return { total: rutas.length, radio: r, rutas: rutas.slice(0, 20) };
+  }
+}
