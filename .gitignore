@@ -9,3 +9,4 @@ coverage/
 .idea/
 .vscode/
 .github/workflows/
+!.eslintrc.js
