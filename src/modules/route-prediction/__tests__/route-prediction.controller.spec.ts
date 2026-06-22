@@ -64,7 +64,15 @@ describe('RoutePredictionController', () => {
         total_distance_km: 12,
         cost: '$3,550',
         mode: 'transmilenio',
-        risk_segments: [{ from_station: 'A', to_station: 'B', congestion_level: 0.5, risk_label: 'medium', coordinates: [[4.65, -74.11]] }],
+        risk_segments: [
+          {
+            from_station: 'A',
+            to_station: 'B',
+            congestion_level: 0.5,
+            risk_label: 'medium',
+            coordinates: [[4.65, -74.11]],
+          },
+        ],
         overall_risk: 'medium',
         safety_score: 70,
         explanation: '',
@@ -91,8 +99,36 @@ describe('RoutePredictionController', () => {
   describe('POST /route-prediction/alternatives', () => {
     it('should return array of alternatives', async () => {
       const mockResponse = [
-        { route_id: 'alt-1', total_time_minutes: 15, total_distance_km: 10, cost: '$20.000', mode: 'vehiculo', risk_segments: [], overall_risk: 'low', safety_score: 80, explanation: '', stations: [], departure_time: '', route_code: '', navigation_steps: [] },
-        { route_id: 'alt-2', total_time_minutes: 18, total_distance_km: 12, cost: '$24.000', mode: 'vehiculo', risk_segments: [], overall_risk: 'medium', safety_score: 70, explanation: '', stations: [], departure_time: '', route_code: '', navigation_steps: [] },
+        {
+          route_id: 'alt-1',
+          total_time_minutes: 15,
+          total_distance_km: 10,
+          cost: '$20.000',
+          mode: 'vehiculo',
+          risk_segments: [],
+          overall_risk: 'low',
+          safety_score: 80,
+          explanation: '',
+          stations: [],
+          departure_time: '',
+          route_code: '',
+          navigation_steps: [],
+        },
+        {
+          route_id: 'alt-2',
+          total_time_minutes: 18,
+          total_distance_km: 12,
+          cost: '$24.000',
+          mode: 'vehiculo',
+          risk_segments: [],
+          overall_risk: 'medium',
+          safety_score: 70,
+          explanation: '',
+          stations: [],
+          departure_time: '',
+          route_code: '',
+          navigation_steps: [],
+        },
       ];
       httpClient.post.mockResolvedValue(mockResponse);
 
@@ -110,7 +146,12 @@ describe('RoutePredictionController', () => {
 
   describe('GET /route-prediction/alerts', () => {
     it('should return system alerts', async () => {
-      const mockResponse = { operating: 123, delayed: 2, suspended: 0, alerts: [{ title: 'Test alert', url: 'https://example.com', route_codes: ['2-3'] }] };
+      const mockResponse = {
+        operating: 123,
+        delayed: 2,
+        suspended: 0,
+        alerts: [{ title: 'Test alert', url: 'https://example.com', route_codes: ['2-3'] }],
+      };
       httpClient.get.mockResolvedValue(mockResponse);
 
       const result = await controller.getAlerts();

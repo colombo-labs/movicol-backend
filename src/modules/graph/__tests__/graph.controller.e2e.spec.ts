@@ -77,8 +77,9 @@ describe('GraphController (e2e)', () => {
 
   describe('GET /graph/rutas-cercanas', () => {
     it('should return nearby routes with distance', async () => {
-      const res = await request(app.getHttpServer())
-        .get('/graph/rutas-cercanas?lat=4.69&lng=-74.11&radius=500');
+      const res = await request(app.getHttpServer()).get(
+        '/graph/rutas-cercanas?lat=4.69&lng=-74.11&radius=500',
+      );
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('total');
       expect(res.body).toHaveProperty('rutas');

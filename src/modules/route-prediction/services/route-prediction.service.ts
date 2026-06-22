@@ -15,7 +15,10 @@ export class RoutePredictionService {
   }
 
   async predictAlternatives(dto: RoutePredictionRequestDto): Promise<RoutePredictionResponseDto[]> {
-    return this.httpClient.post<RoutePredictionResponseDto[]>('/api/v1/predict-route/alternatives', dto);
+    return this.httpClient.post<RoutePredictionResponseDto[]>(
+      '/api/v1/predict-route/alternatives',
+      dto,
+    );
   }
 
   async getAlerts(): Promise<any> {

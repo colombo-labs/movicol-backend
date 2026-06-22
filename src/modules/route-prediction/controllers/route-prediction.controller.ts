@@ -26,7 +26,9 @@ export class RoutePredictionController {
 
   @Post('alternatives')
   @ApiOperation({ summary: 'Predict multiple route alternatives (vehicle)' })
-  predictAlternatives(@Body() dto: RoutePredictionRequestDto): Promise<RoutePredictionResponseDto[]> {
+  predictAlternatives(
+    @Body() dto: RoutePredictionRequestDto,
+  ): Promise<RoutePredictionResponseDto[]> {
     return this.service.predictAlternatives(dto);
   }
 }

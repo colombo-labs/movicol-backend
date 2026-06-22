@@ -183,7 +183,9 @@ export class GraphController {
   @Get('tm/rutas')
   @ApiOperation({ summary: 'Get TransMilenio troncal routes (126 routes)' })
   async getTmRutas() {
-    const rutas = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'tm_rutas_troncales.json'), 'utf-8'));
+    const rutas = JSON.parse(
+      fs.readFileSync(path.join(DATA_DIR, 'tm_rutas_troncales.json'), 'utf-8'),
+    );
     return { total: rutas.length, rutas };
   }
 
@@ -304,7 +306,8 @@ export class GraphController {
   getSiniestrosByLocalidad(@Param('localidad') localidad: string) {
     const data = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'siniestralidad.json'), 'utf-8'));
     const loc = data.por_localidad[localidad];
-    if (!loc) return { error: 'Localidad no encontrada', disponibles: Object.keys(data.por_localidad) };
+    if (!loc)
+      return { error: 'Localidad no encontrada', disponibles: Object.keys(data.por_localidad) };
     return { localidad, ...loc };
   }
 }
