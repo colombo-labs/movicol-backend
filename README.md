@@ -1,48 +1,35 @@
-![CI](https://github.com/colombo-labs/movicol-backend/actions/workflows/ci.yml/badge.svg)
-[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=colombo-labs_movicol-backend&metric=alert_status)](https://sonarcloud.io/dashboard?id=colombo-labs_movicol-backend)
-[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=colombo-labs_movicol-backend&metric=bugs)](https://sonarcloud.io/dashboard?id=colombo-labs_movicol-backend)
-[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=colombo-labs_movicol-backend&metric=code_smells)](https://sonarcloud.io/dashboard?id=colombo-labs_movicol-backend)
-
 # MoviCol Backend
 
-NestJS REST API for MoviCol transport system. Serves real SITP/TM data and proxies AI service.
+API REST para MoviCol — NestJS + TypeORM + PostgreSQL/PostGIS + Redis.
 
 ## Stack
-- NestJS + TypeScript
-- Redis (query cache)
-- GeoJSON (real infrastructure data)
 
-## Key Endpoints (v0.2.0)
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/graph/rutas-cercanas?lat=X&lng=Y&radius=500` | Routes near a point |
-| GET | `/graph/accesibilidad` | Infrastructure metrics |
-| GET | `/graph/sitp/rutas` | All 689 routes with stops |
-| GET | `/graph/stations` | Graph stations |
-| GET | `/graph/heatmap?hour=8` | Congestion heatmap |
-| POST | `/route-prediction` | Route prediction (AI proxy) |
+- NestJS 10 + TypeScript
+- TypeORM + PostgreSQL + PostGIS
+- Redis 7 (cache)
+- Proxy al AI Service (FastAPI :8000)
 
-## Data
-- `data/sitp_rutas_paraderos.geojson` — 42,601 stops, 689 routes
-- `data/sitp_paraderos.geojson` — SITP bus stops
+## Setup
 
-## Run
 ```bash
-npm install && npm run dev     # Dev with watch
-npm run build                  # Compile
-npm run lint                   # ESLint
-npm run format                 # Prettier
+npm install
+npm run start:dev   # http://localhost:3001
+npm test            # Jest
+npm run test:e2e    # Integration tests
 ```
 
-## Docker
-```bash
-docker build -t colombolabs/movicol-backend:latest .
-docker run -d -p 3001:3001 -e REDIS_HOST=movicol-redis \
-  -e AI_SERVICE_URL=http://movicol-ai:8000 \
-  --network movicol-infra_default colombolabs/movicol-backend:latest
-```
+## Módulos
+
+| Módulo | Endpoints |
+|--------|-----------|
+| `graph/` | `/graph/stats`, `/graph/tm/*`, `/graph/sitp/*`, `/graph/heatmap`, `/graph/rutas-cercanas` |
+| `route-prediction/` | `/route-prediction`, `/route-prediction/alternatives`, `/route-prediction/alerts` |
+| `health/` | `/health` |
 
 ## Env
-- `REDIS_HOST` — Redis host (default: localhost)
-- `AI_SERVICE_URL` — AI service (default: http://localhost:8000)
-- `PORT` — Server port (default: 3001)
+
+```env
+DATABASE_URL=postgresql://movicol:movicol@localhost:5432/movicol
+REDIS_URL=redis://localhost:6379
+AI_SERVICE_URL=http://localhost:8000
+```

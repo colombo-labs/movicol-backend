@@ -20,8 +20,10 @@ function haversine(lat1: number, lon1: number, lat2: number, lon2: number): numb
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+const DATA_DIR = process.env.DATA_PATH || path.join(process.cwd(), '..', 'movicol-data', 'exports');
+
 function loadGeoJson(filename: string) {
-  return JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', filename), 'utf-8'));
+  return JSON.parse(fs.readFileSync(path.join(DATA_DIR, filename), 'utf-8'));
 }
 
 const GEO_TTL = 600; // 10 min for static infrastructure data
@@ -178,6 +180,15 @@ export class GraphController {
     return { total: rutas.length, rutas };
   }
 
+  @Get('tm/rutas')
+  @ApiOperation({ summary: 'Get TransMilenio troncal routes (126 routes)' })
+  async getTmRutas() {
+    const rutas = JSON.parse(
+      fs.readFileSync(path.join(DATA_DIR, 'tm_rutas_troncales.json'), 'utf-8'),
+    );
+    return { total: rutas.length, rutas };
+  }
+
   @Get('accesibilidad')
   @ApiOperation({ summary: 'Get accessibility metrics from real data' })
   async getAccesibilidad() {
@@ -270,5 +281,33 @@ export class GraphController {
     rutas.sort((a, b) => a.distanciaMinima - b.distanciaMinima);
 
     return { total: rutas.length, radio: r, rutas: rutas.slice(0, 20) };
+  }
+
+  @Get('siniestralidad')
+  @ApiOperation({ summary: 'Siniestralidad por localidad con scores de seguridad' })
+  getSiniestralidad() {
+    const data = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'siniestralidad.json'), 'utf-8'));
+    return {
+      total_siniestros: data.total_siniestros,
+      por_localidad: data.por_localidad,
+      metadata: data.metadata,
+    };
+  }
+
+  @Get('siniestralidad/heatmap')
+  @ApiOperation({ summary: 'Puntos georreferenciados para heatmap de siniestros' })
+  getSiniestrosHeatmap() {
+    const data = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'siniestralidad.json'), 'utf-8'));
+    return data.heatmap_points;
+  }
+
+  @Get('siniestralidad/localidad/:localidad')
+  @ApiOperation({ summary: 'Siniestralidad de una localidad específica' })
+  getSiniestrosByLocalidad(@Param('localidad') localidad: string) {
+    const data = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'siniestralidad.json'), 'utf-8'));
+    const loc = data.por_localidad[localidad];
+    if (!loc)
+      return { error: 'Localidad no encontrada', disponibles: Object.keys(data.por_localidad) };
+    return { localidad, ...loc };
   }
 }

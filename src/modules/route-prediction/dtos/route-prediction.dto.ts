@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
-import { IsDateString, IsNumber, ValidateNested } from 'class-validator';
+import { IsDateString, IsNumber, IsOptional, IsString, ValidateNested } from 'class-validator';
 
 export class CoordinatesDto {
   @IsNumber()
@@ -31,6 +31,8 @@ export class RoutePredictionRequestDto {
   @ApiProperty({ example: '2026-05-20T08:00:00Z' })
   departure_time: string;
 
+  @IsOptional()
+  @IsString()
   @ApiProperty({ example: 'transmilenio', description: 'transmilenio | sitp | vehiculo' })
   mode?: string;
 }

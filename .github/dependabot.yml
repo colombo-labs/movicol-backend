@@ -4,12 +4,21 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      all-actions:
+        patterns: ["*"]
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    groups:
+      all-npm:
+        patterns: ["*"]
   - package-ecosystem: "docker-compose"
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      all-docker:
+        patterns: ["*"]
