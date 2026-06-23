@@ -7,6 +7,7 @@ import { CommonModule } from '../common/common.module';
 import configuration from '../config/configuration';
 import { AuthModule } from '../modules/auth/auth.module';
 import { AdminModule } from '../modules/admin/admin.module';
+import { FavoritesModule } from '../modules/favorites/favorites.module';
 import { JwtAuthGuard } from '../modules/auth/guards/jwt-auth.guard';
 import { ChatModule } from '../modules/chat/chat.module';
 import { GraphModule } from '../modules/graph/graph.module';
@@ -33,6 +34,7 @@ import { RoutePredictionModule } from '../modules/route-prediction/route-predict
     CommonModule,
     AuthModule,
     AdminModule,
+    FavoritesModule,
     HealthModule,
     GraphModule,
     PredictionsModule,
