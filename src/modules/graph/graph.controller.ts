@@ -155,7 +155,7 @@ export class GraphController {
     const targetLat = Number.parseFloat(lat);
     const targetLon = Number.parseFloat(lon);
     const r = radius ? Number.parseFloat(radius) : 500; // default 500 meters
-    
+
     const paraderos = loadGeoJson('sitp_paraderos.geojson');
     const cercanos = [];
 
@@ -164,14 +164,14 @@ export class GraphController {
       const pLon = feat.geometry.coordinates[0];
       const pLat = feat.geometry.coordinates[1];
       const dist = haversine(targetLat, targetLon, pLat, pLon);
-      
+
       if (dist <= r) {
         cercanos.push({
           ...feat,
           properties: {
             ...feat.properties,
-            distancia_metros: Math.round(dist)
-          }
+            distancia_metros: Math.round(dist),
+          },
         });
       }
     }
@@ -180,7 +180,7 @@ export class GraphController {
 
     return {
       type: 'FeatureCollection',
-      features: cercanos.slice(0, 50)
+      features: cercanos.slice(0, 50),
     };
   }
 
@@ -190,12 +190,13 @@ export class GraphController {
     const paraderos = loadGeoJson('sitp_paraderos.geojson');
     // En el geojson los IDs pueden ser de tipo string o number dependiendo del campo
     const targetId = String(id);
-    const paradero = paraderos.features.find((f: any) => 
-      String(f.id) === targetId || 
-      String(f.properties?.objectid) === targetId || 
-      String(f.properties?.cenefa) === targetId
+    const paradero = paraderos.features.find(
+      (f: any) =>
+        String(f.id) === targetId ||
+        String(f.properties?.objectid) === targetId ||
+        String(f.properties?.cenefa) === targetId,
     );
-    
+
     if (!paradero) {
       return { error: 'Paradero no encontrado' };
     }
@@ -206,7 +207,7 @@ export class GraphController {
   @ApiOperation({ summary: 'Get SITP routes with ordered stops and frequencies' })
   async getSitpRutas() {
     const raw = loadGeoJson('sitp_rutas_paraderos.geojson');
-    
+
     let frecuencias: Record<string, any> = {};
     try {
       frecuencias = loadGeoJson('sitp_rutas_frecuencias.json');
@@ -230,12 +231,12 @@ export class GraphController {
       if (!geom?.coordinates || !props?.ruta) continue;
       const ruta = props.ruta;
       if (!rutasMap[ruta]) {
-        rutasMap[ruta] = { 
-          ruta, 
-          cenefa: props.cenefa || '', 
+        rutasMap[ruta] = {
+          ruta,
+          cenefa: props.cenefa || '',
           frecuencia_base_min: frecuencias[ruta]?.frecuencia_base_min || 15,
           tipo_servicio: frecuencias[ruta]?.tipo_servicio || 'Urbano',
-          paraderos: [] 
+          paraderos: [],
         };
       }
       rutasMap[ruta].paraderos.push({
