@@ -1,6 +1,10 @@
 import { Module } from '@nestjs/common';
 import { UserGateway } from "./gateways/user.gateway";
 import { UserPermission } from "../admin/entities/user-permission.entity";
+import { SavedRoute } from "./entities/saved-route.entity";
+import { SavedRoutesController } from "./saved-routes.controller";
+import { PreferencesController } from "./preferences.controller";
+import { UserPreference } from "./entities/user-preference.entity";
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -31,9 +35,9 @@ import { CommonModule } from '../../common/common.module';
         signOptions: { expiresIn: '15m' },
       }),
     }),
-    TypeOrmModule.forFeature([User, Role, Permission, RolePermission, UserFavorite, RefreshToken, UserPermission]),
+    TypeOrmModule.forFeature([User, Role, Permission, RolePermission, UserFavorite, RefreshToken, UserPermission, SavedRoute, UserPreference]),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, SavedRoutesController, PreferencesController],
   providers: [AuthService, GoogleStrategy, JwtStrategy, JwtAuthGuard, PermissionsGuard, UserGateway],
   exports: [AuthService, JwtAuthGuard, PermissionsGuard, UserGateway],
 })

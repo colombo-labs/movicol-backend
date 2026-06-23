@@ -14,6 +14,8 @@ import { GraphModule } from '../modules/graph/graph.module';
 import { HealthModule } from '../modules/health/health.module';
 import { PredictionsModule } from '../modules/predictions/predictions.module';
 import { RoutePredictionModule } from '../modules/route-prediction/route-prediction.module';
+import { RoutesModule } from "../modules/routes/routes.module";
+import { StationsModule } from "../modules/stations/stations.module";
 
 @Module({
   imports: [
@@ -39,6 +41,8 @@ import { RoutePredictionModule } from '../modules/route-prediction/route-predict
     GraphModule,
     PredictionsModule,
     RoutePredictionModule,
+    RoutesModule,
+    StationsModule,
     ChatModule,
   ],
   providers: [
