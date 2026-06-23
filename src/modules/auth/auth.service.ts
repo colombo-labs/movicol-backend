@@ -7,7 +7,8 @@ import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { Permission } from './entities/permission.entity';
-import { RolePermission } from './entities/role-permission.entity';
+import { RolePermission } from "./entities/role-permission.entity";
+import { UserPermission } from "../admin/entities/user-permission.entity";
 import { RedisService } from '../../common/services/redis.service';
 
 @Injectable()
@@ -16,6 +17,7 @@ export class AuthService {
     @InjectRepository(User) private userRepo: Repository<User>,
     @InjectRepository(RefreshToken) private refreshRepo: Repository<RefreshToken>,
     @InjectRepository(RolePermission) private rolePermRepo: Repository<RolePermission>,
+    @InjectRepository(UserPermission) private userPermRepo: Repository<UserPermission>,
     private jwt: JwtService,
     private redis: RedisService,
   ) {}
@@ -106,10 +108,35 @@ export class AuthService {
   }
 
   async getMe(userId: string) {
-    return this.userRepo.findOne({ where: { id: userId }, relations: ['role'] });
+    const user = await this.userRepo.findOne({ where: { id: userId }, relations: ["role"] });
+    if (!user) return null;
+
+    const rolePerms = await this.rolePermRepo.find({ where: { roleId: user.roleId }, relations: ["permission"] });
+    const userPerms = await this.userPermRepo.find({ where: { userId }, relations: ["permission"] });
+
+    const permissions = [...new Set([
+      ...rolePerms.map((rp) => rp.permission.key),
+      ...userPerms.map((up) => up.permission.key),
+    ])];
+
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      avatarUrl: user.avatarUrl,
+      role: user.role,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      permissions,
+    };
   }
 
-  async logout(sessionId: string) {
+  async logout(sessionId: string, userId?: string) {
+    // Delete session
     await this.redis.del(`session:${sessionId}`);
+    // Blacklist the token for 15min (access token TTL)
+    await this.redis.set(`blacklist:${sessionId}`, "1", 900);
+    // Clear permissions cache
+    if (userId) await this.redis.del(`permissions:${userId}`);
   }
 }

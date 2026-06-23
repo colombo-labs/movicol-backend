@@ -16,8 +16,9 @@ export class AuthController {
   @Public()
   @Get('google')
   @UseGuards(AuthGuard('google'))
-  googleLogin() {
-    // Passport redirects to Google
+  googleLogin(@Req() req: any) {
+    // Passport redirects to Google with prompt=select_account
+    // configured in GoogleStrategy
   }
 
   @Public()
@@ -79,12 +80,12 @@ export class AuthController {
     return this.authService.getMe(userId);
   }
 
-  @Post('logout')
-  async logout(@CurrentUser('sessionId') sessionId: string, @Res() res: Response) {
-    if (sessionId) await this.authService.logout(sessionId);
+  @Post("logout")
+  async logout(@CurrentUser() user: any, @Res() res: Response) {
+    if (user?.sessionId) await this.authService.logout(user.sessionId, user.id);
 
-    res.clearCookie('access_token');
-    res.clearCookie('refresh_token', { path: '/auth/refresh' });
+    res.clearCookie('access_token', { httpOnly: false, secure: false, sameSite: 'lax' });
+    res.clearCookie('refresh_token', { httpOnly: true, secure: false, sameSite: 'lax' });
     res.json({ message: 'Logged out' });
   }
 }

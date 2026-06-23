@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { UserGateway } from "./gateways/user.gateway";
+import { UserPermission } from "../admin/entities/user-permission.entity";
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -30,7 +31,7 @@ import { CommonModule } from '../../common/common.module';
         signOptions: { expiresIn: '15m' },
       }),
     }),
-    TypeOrmModule.forFeature([User, Role, Permission, RolePermission, UserFavorite, RefreshToken]),
+    TypeOrmModule.forFeature([User, Role, Permission, RolePermission, UserFavorite, RefreshToken, UserPermission]),
   ],
   controllers: [AuthController],
   providers: [AuthService, GoogleStrategy, JwtStrategy, JwtAuthGuard, PermissionsGuard, UserGateway],
