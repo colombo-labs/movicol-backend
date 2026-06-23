@@ -1,3 +1,4 @@
+import { Public } from "../auth/decorators/public.decorator";
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
@@ -29,6 +30,7 @@ function loadGeoJson(filename: string) {
 const GEO_TTL = 600; // 10 min for static infrastructure data
 
 @ApiTags('Graph')
+@Public()
 @Controller('graph')
 export class GraphController {
   constructor(

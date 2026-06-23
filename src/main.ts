@@ -2,6 +2,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import * as cookieParser from 'cookie-parser';
 
 import { AppModule } from './app/app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
@@ -9,6 +10,9 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
+
+  // Cookie parser
+  app.use(cookieParser());
 
   // Global pipes
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
@@ -19,6 +23,7 @@ async function bootstrap() {
   // CORS
   app.enableCors({
     origin: config.get<string>('CORS_ORIGINS', 'http://localhost:3000').split(','),
+    credentials: true,
   });
 
   // Swagger

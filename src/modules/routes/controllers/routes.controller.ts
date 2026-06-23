@@ -1,3 +1,4 @@
+import { Public } from '../../auth/decorators/public.decorator';
 import { Controller, Get, Param, ParseUUIDPipe, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
@@ -5,6 +6,7 @@ import { PaginationParams } from '../../../common/interfaces/pagination.interfac
 import { RoutesService } from '../services/routes.service';
 
 @ApiTags('Routes')
+@Public()
 @Controller('routes')
 export class RoutesController {
   constructor(private readonly routesService: RoutesService) {}
