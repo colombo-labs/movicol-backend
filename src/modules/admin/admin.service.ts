@@ -11,6 +11,7 @@ import { Permission } from '../auth/entities/permission.entity';
 import { RolePermission } from '../auth/entities/role-permission.entity';
 import { UserPermission } from './entities/user-permission.entity';
 import { RedisService } from '../../common/services/redis.service';
+import { UserGateway } from "../auth/gateways/user.gateway";
 
 @Injectable()
 export class AdminService {
@@ -21,6 +22,7 @@ export class AdminService {
     @InjectRepository(RolePermission) private rolePermRepo: Repository<RolePermission>,
     @InjectRepository(UserPermission) private userPermRepo: Repository<UserPermission>,
     private redis: RedisService,
+    private userGateway: UserGateway,
   ) {}
 
   // ==================== USERS ====================
@@ -35,6 +37,7 @@ export class AdminService {
     user.roleId = roleId;
     await this.userRepo.save(user);
     await this.invalidateUserPermissions(userId);
+    this.userGateway.notifyUserUpdated(Number(userId));
     return { message: 'Rol actualizado' };
   }
 
@@ -43,6 +46,8 @@ export class AdminService {
     if (!user) throw new NotFoundException('Usuario no encontrado');
     user.isActive = !user.isActive;
     await this.userRepo.save(user);
+    if (!user.isActive) this.userGateway.notifyForceLogout(Number(userId), "account_disabled");
+    else this.userGateway.notifyUserUpdated(Number(userId));
     return { isActive: user.isActive };
   }
 
@@ -83,6 +88,7 @@ export class AdminService {
       await this.userPermRepo.save(entities);
     }
     await this.invalidateUserPermissions(userId);
+    this.userGateway.notifyUserUpdated(Number(userId));
     return { message: 'Permisos extra actualizados' };
   }
 
@@ -134,6 +140,7 @@ export class AdminService {
     const users = await this.userRepo.find({ where: { roleId } });
     for (const u of users) {
       await this.invalidateUserPermissions(u.id);
+      this.userGateway.notifyUserUpdated(Number(u.id));
     }
     return { message: 'Permisos del rol actualizados' };
   }

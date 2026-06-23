@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { UserGateway } from "./gateways/user.gateway";
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -32,7 +33,7 @@ import { CommonModule } from '../../common/common.module';
     TypeOrmModule.forFeature([User, Role, Permission, RolePermission, UserFavorite, RefreshToken]),
   ],
   controllers: [AuthController],
-  providers: [AuthService, GoogleStrategy, JwtStrategy, JwtAuthGuard, PermissionsGuard],
-  exports: [AuthService, JwtAuthGuard, PermissionsGuard],
+  providers: [AuthService, GoogleStrategy, JwtStrategy, JwtAuthGuard, PermissionsGuard, UserGateway],
+  exports: [AuthService, JwtAuthGuard, PermissionsGuard, UserGateway],
 })
 export class AuthModule {}
