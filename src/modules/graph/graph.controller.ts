@@ -24,7 +24,15 @@ function haversine(lat1: number, lon1: number, lat2: number, lon2: number): numb
 const DATA_DIR = process.env.DATA_PATH || path.join(process.cwd(), '..', 'movicol-data', 'exports');
 
 function loadGeoJson(filename: string) {
-  return JSON.parse(fs.readFileSync(path.join(DATA_DIR, filename), 'utf-8'));
+  const primary = path.join(DATA_DIR, filename);
+  if (fs.existsSync(primary)) {
+    return JSON.parse(fs.readFileSync(primary, 'utf-8'));
+  }
+  const backend = path.join(DATA_DIR, 'backend', filename);
+  if (fs.existsSync(backend)) {
+    return JSON.parse(fs.readFileSync(backend, 'utf-8'));
+  }
+  throw new Error(`GeoJSON file not found: ${filename} (tried ${primary} and ${backend})`);
 }
 
 const GEO_TTL = 600; // 10 min for static infrastructure data
@@ -147,15 +155,83 @@ export class GraphController {
     return data;
   }
 
+  @Get('sitp/paraderos/nearby')
+  @ApiOperation({ summary: 'Find SITP bus stops near a geographic point' })
+  getSitpParaderosNearby(
+    @Query('lat') lat: string,
+    @Query('lon') lon: string,
+    @Query('radius') radius?: string,
+  ) {
+    const targetLat = Number.parseFloat(lat);
+    const targetLon = Number.parseFloat(lon);
+    const r = radius ? Number.parseFloat(radius) : 500; // default 500 meters
+
+    const paraderos = loadGeoJson('sitp_paraderos.geojson');
+    const cercanos = [];
+
+    for (const feat of paraderos.features) {
+      if (!feat.geometry?.coordinates) continue;
+      const pLon = feat.geometry.coordinates[0];
+      const pLat = feat.geometry.coordinates[1];
+      const dist = haversine(targetLat, targetLon, pLat, pLon);
+
+      if (dist <= r) {
+        cercanos.push({
+          ...feat,
+          properties: {
+            ...feat.properties,
+            distancia_metros: Math.round(dist),
+          },
+        });
+      }
+    }
+
+    cercanos.sort((a, b) => a.properties.distancia_metros - b.properties.distancia_metros);
+
+    return {
+      type: 'FeatureCollection',
+      features: cercanos.slice(0, 50),
+    };
+  }
+
+  @Get('sitp/paraderos/:id')
+  @ApiOperation({ summary: 'Get specific SITP bus stop details' })
+  getSitpParadero(@Param('id') id: string) {
+    const paraderos = loadGeoJson('sitp_paraderos.geojson');
+    // En el geojson los IDs pueden ser de tipo string o number dependiendo del campo
+    const targetId = String(id);
+    const paradero = paraderos.features.find(
+      (f: any) =>
+        String(f.id) === targetId ||
+        String(f.properties?.objectid) === targetId ||
+        String(f.properties?.cenefa) === targetId,
+    );
+
+    if (!paradero) {
+      return { error: 'Paradero no encontrado' };
+    }
+    return paradero;
+  }
+
   @Get('sitp/rutas')
-  @ApiOperation({ summary: 'Get SITP routes with ordered stops' })
+  @ApiOperation({ summary: 'Get SITP routes with ordered stops and frequencies' })
   async getSitpRutas() {
     const raw = loadGeoJson('sitp_rutas_paraderos.geojson');
+
+    let frecuencias: Record<string, any> = {};
+    try {
+      frecuencias = loadGeoJson('sitp_rutas_frecuencias.json');
+    } catch (e) {
+      // Si el archivo no existe, no falla
+    }
+
     const rutasMap: Record<
       string,
       {
         ruta: string;
         cenefa: string;
+        frecuencia_base_min: number;
+        tipo_servicio: string;
         paraderos: { lat: number; lon: number; nombre: string; orden: string }[];
       }
     > = {};
@@ -165,7 +241,13 @@ export class GraphController {
       if (!geom?.coordinates || !props?.ruta) continue;
       const ruta = props.ruta;
       if (!rutasMap[ruta]) {
-        rutasMap[ruta] = { ruta, cenefa: props.cenefa || '', paraderos: [] };
+        rutasMap[ruta] = {
+          ruta,
+          cenefa: props.cenefa || '',
+          frecuencia_base_min: frecuencias[ruta]?.frecuencia_base_min || 15,
+          tipo_servicio: frecuencias[ruta]?.tipo_servicio || 'Urbano',
+          paraderos: [],
+        };
       }
       rutasMap[ruta].paraderos.push({
         lat: geom.coordinates[1],
@@ -180,6 +262,17 @@ export class GraphController {
       return r;
     });
     return { total: rutas.length, rutas };
+  }
+
+  @Get('sitp/rutas/shapes')
+  @ApiOperation({ summary: 'Get exact SITP routes shapes (LineStrings)' })
+  async getSitpRutasShapes() {
+    try {
+      const data = loadGeoJson('sitp_rutas_shapes.geojson');
+      return data;
+    } catch (e) {
+      return { error: 'Shapes file not found. Have you executed HT1 pipeline?' };
+    }
   }
 
   @Get('tm/rutas')
@@ -244,7 +337,7 @@ export class GraphController {
   ) {
     const targetLat = Number.parseFloat(lat);
     const targetLng = Number.parseFloat(lng);
-    const r = radius ? Number.parseFloat(radius) : 500; // meters
+    const r = radius ? Number.parseFloat(radius) : 800; // meters (default 800m)
 
     const raw = loadGeoJson('sitp_rutas_paraderos.geojson');
 

@@ -84,4 +84,17 @@ export class RoutePredictionResponseDto {
 
   @ApiProperty()
   departure_time: string;
+
+  @ApiProperty({ description: 'Number of transfers between routes', default: 0 })
+  transfers: number;
+
+  @ApiProperty({ description: 'Estimated wait time at origin stop (minutes)', default: 0 })
+  estimated_wait_minutes: number;
+
+  @ApiProperty({
+    type: [RoutePredictionResponseDto],
+    description: '2-3 alternative routes',
+    default: [],
+  })
+  alternatives: RoutePredictionResponseDto[];
 }
