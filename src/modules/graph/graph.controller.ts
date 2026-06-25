@@ -23,7 +23,15 @@ function haversine(lat1: number, lon1: number, lat2: number, lon2: number): numb
 const DATA_DIR = process.env.DATA_PATH || path.join(process.cwd(), '..', 'movicol-data', 'exports');
 
 function loadGeoJson(filename: string) {
-  return JSON.parse(fs.readFileSync(path.join(DATA_DIR, filename), 'utf-8'));
+  const primary = path.join(DATA_DIR, filename);
+  if (fs.existsSync(primary)) {
+    return JSON.parse(fs.readFileSync(primary, 'utf-8'));
+  }
+  const backend = path.join(DATA_DIR, 'backend', filename);
+  if (fs.existsSync(backend)) {
+    return JSON.parse(fs.readFileSync(backend, 'utf-8'));
+  }
+  throw new Error(`GeoJSON file not found: ${filename} (tried ${primary} and ${backend})`);
 }
 
 const GEO_TTL = 600; // 10 min for static infrastructure data
@@ -327,7 +335,7 @@ export class GraphController {
   ) {
     const targetLat = Number.parseFloat(lat);
     const targetLng = Number.parseFloat(lng);
-    const r = radius ? Number.parseFloat(radius) : 500; // meters
+    const r = radius ? Number.parseFloat(radius) : 800; // meters (default 800m)
 
     const raw = loadGeoJson('sitp_rutas_paraderos.geojson');
 
