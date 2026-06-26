@@ -7,8 +7,8 @@ import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { Permission } from './entities/permission.entity';
-import { RolePermission } from "./entities/role-permission.entity";
-import { UserPermission } from "../admin/entities/user-permission.entity";
+import { RolePermission } from './entities/role-permission.entity';
+import { UserPermission } from '../admin/entities/user-permission.entity';
 import { RedisService } from '../../common/services/redis.service';
 
 @Injectable()
@@ -87,7 +87,10 @@ export class AuthService {
         await this.refreshRepo.save(record);
 
         // Generate new pair
-        const user = await this.userRepo.findOne({ where: { id: record.userId }, relations: ['role'] });
+        const user = await this.userRepo.findOne({
+          where: { id: record.userId },
+          relations: ['role'],
+        });
         if (!user) return null;
 
         return this.generateTokens(user);
@@ -108,16 +111,24 @@ export class AuthService {
   }
 
   async getMe(userId: string) {
-    const user = await this.userRepo.findOne({ where: { id: userId }, relations: ["role"] });
+    const user = await this.userRepo.findOne({ where: { id: userId }, relations: ['role'] });
     if (!user) return null;
 
-    const rolePerms = await this.rolePermRepo.find({ where: { roleId: user.roleId }, relations: ["permission"] });
-    const userPerms = await this.userPermRepo.find({ where: { userId }, relations: ["permission"] });
+    const rolePerms = await this.rolePermRepo.find({
+      where: { roleId: user.roleId },
+      relations: ['permission'],
+    });
+    const userPerms = await this.userPermRepo.find({
+      where: { userId },
+      relations: ['permission'],
+    });
 
-    const permissions = [...new Set([
-      ...rolePerms.map((rp) => rp.permission.key),
-      ...userPerms.map((up) => up.permission.key),
-    ])];
+    const permissions = [
+      ...new Set([
+        ...rolePerms.map((rp) => rp.permission.key),
+        ...userPerms.map((up) => up.permission.key),
+      ]),
+    ];
 
     return {
       id: user.id,
@@ -135,7 +146,7 @@ export class AuthService {
     // Delete session
     await this.redis.del(`session:${sessionId}`);
     // Blacklist the token for 15min (access token TTL)
-    await this.redis.set(`blacklist:${sessionId}`, "1", 900);
+    await this.redis.set(`blacklist:${sessionId}`, '1', 900);
     // Clear permissions cache
     if (userId) await this.redis.del(`permissions:${userId}`);
   }

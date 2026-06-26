@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { User } from '../auth/entities/user.entity';
@@ -11,7 +7,7 @@ import { Permission } from '../auth/entities/permission.entity';
 import { RolePermission } from '../auth/entities/role-permission.entity';
 import { UserPermission } from './entities/user-permission.entity';
 import { RedisService } from '../../common/services/redis.service';
-import { UserGateway } from "../auth/gateways/user.gateway";
+import { UserGateway } from '../auth/gateways/user.gateway';
 
 @Injectable()
 export class AdminService {
@@ -46,7 +42,7 @@ export class AdminService {
     if (!user) throw new NotFoundException('Usuario no encontrado');
     user.isActive = !user.isActive;
     await this.userRepo.save(user);
-    if (!user.isActive) this.userGateway.notifyForceLogout(Number(userId), "account_disabled");
+    if (!user.isActive) this.userGateway.notifyForceLogout(Number(userId), 'account_disabled');
     else this.userGateway.notifyUserUpdated(Number(userId));
     return { isActive: user.isActive };
   }

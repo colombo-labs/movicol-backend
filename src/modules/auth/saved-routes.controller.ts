@@ -6,9 +6,7 @@ import { SavedRoute } from './entities/saved-route.entity';
 
 @Controller('saved-routes')
 export class SavedRoutesController {
-  constructor(
-    @InjectRepository(SavedRoute) private repo: Repository<SavedRoute>,
-  ) {}
+  constructor(@InjectRepository(SavedRoute) private repo: Repository<SavedRoute>) {}
 
   @Get()
   findAll(@CurrentUser('id') userId: string) {
@@ -20,16 +18,20 @@ export class SavedRoutesController {
   }
 
   @Post()
-  create(@CurrentUser('id') userId: string, @Body() body: {
-    originLabel: string;
-    originLat: number;
-    originLng: number;
-    destLabel: string;
-    destLat: number;
-    destLng: number;
-    estimatedMinutes?: number;
-    mode?: string;
-  }) {
+  create(
+    @CurrentUser('id') userId: string,
+    @Body()
+    body: {
+      originLabel: string;
+      originLat: number;
+      originLng: number;
+      destLabel: string;
+      destLat: number;
+      destLng: number;
+      estimatedMinutes?: number;
+      mode?: string;
+    },
+  ) {
     const route = this.repo.create({ ...body, userId });
     return this.repo.save(route);
   }

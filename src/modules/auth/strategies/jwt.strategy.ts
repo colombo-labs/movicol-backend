@@ -30,6 +30,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       if (blacklisted) throw new UnauthorizedException('Session revoked');
     }
 
-    return { id: payload.sub, email: payload.email, role: payload.role, sessionId: payload.sessionId };
+    return {
+      id: payload.sub,
+      email: payload.email,
+      role: payload.role,
+      sessionId: payload.sessionId,
+    };
   }
 }

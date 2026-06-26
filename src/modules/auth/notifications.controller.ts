@@ -6,9 +6,7 @@ import { Notification } from './entities/notification.entity';
 
 @Controller('notifications')
 export class NotificationsController {
-  constructor(
-    @InjectRepository(Notification) private repo: Repository<Notification>,
-  ) {}
+  constructor(@InjectRepository(Notification) private repo: Repository<Notification>) {}
 
   @Get()
   findAll(@CurrentUser('id') userId: string) {

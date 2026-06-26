@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Req, Res, UseGuards, Body, UnauthorizedException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+  Body,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
@@ -80,7 +89,7 @@ export class AuthController {
     return this.authService.getMe(userId);
   }
 
-  @Post("logout")
+  @Post('logout')
   async logout(@CurrentUser() user: any, @Res() res: Response) {
     if (user?.sessionId) await this.authService.logout(user.sessionId, user.id);
 
