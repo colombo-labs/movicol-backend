@@ -4,8 +4,7 @@ import type { Feature, FeatureCollection } from 'geojson';
 import { RedisService } from './redis.service';
 
 /** ArcGIS FeatureServer base URL for Bogotá transport data */
-const ARCGIS_BASE =
-  'https://services2.arcgis.com/NEwhEo9GGSHXcRXV/arcgis/rest/services';
+const ARCGIS_BASE = 'https://services2.arcgis.com/NEwhEo9GGSHXcRXV/arcgis/rest/services';
 
 /** Dataset endpoints */
 const DATASETS = {

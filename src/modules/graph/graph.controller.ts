@@ -130,7 +130,12 @@ export class GraphController {
   @Get('tm/rutas')
   @ApiOperation({ summary: 'Get TransMilenio troncal routes (ArcGIS → Redis cached 24h)' })
   async getTmRutas() {
-    const tipoBusMap: Record<number, string> = { 1: 'BIARTICULADO', 2: 'ARTICULADO', 3: 'DUAL', 4: 'PADRON' };
+    const tipoBusMap: Record<number, string> = {
+      1: 'BIARTICULADO',
+      2: 'ARTICULADO',
+      3: 'DUAL',
+      4: 'PADRON',
+    };
     const geo = await this.arcgis.getTmRutas();
     const rutas = geo.features.map((f: any) => {
       const p = f.properties ?? {};
@@ -222,7 +227,15 @@ export class GraphController {
       COMPLEMENTARIA: 'E65100',
       ESPECIAL: '6A1B9A',
     };
-    const rutasMap: Record<string, { ruta: string; cenefa: string; tipo: string; paraderos: { lat: number; lon: number; nombre: string }[] }> = {};
+    const rutasMap: Record<
+      string,
+      {
+        ruta: string;
+        cenefa: string;
+        tipo: string;
+        paraderos: { lat: number; lon: number; nombre: string }[];
+      }
+    > = {};
     for (const r of records) {
       if (!r.RUTA) continue;
       const ruta = r.RUTA;
@@ -304,7 +317,10 @@ export class GraphController {
     const r = radius ? Number.parseFloat(radius) : 800;
 
     const records = await this.arcgis.getParaderosRuta();
-    const rutasMap: Record<string, { ruta: string; cenefa: string; paraderosCercanos: { nombre: string; distancia: number }[] }> = {};
+    const rutasMap: Record<
+      string,
+      { ruta: string; cenefa: string; paraderosCercanos: { nombre: string; distancia: number }[] }
+    > = {};
 
     for (const rec of records) {
       if (!rec.RUTA) continue;
@@ -317,7 +333,10 @@ export class GraphController {
         if (!rutasMap[ruta]) {
           rutasMap[ruta] = { ruta, cenefa: rec.CENEFA || ruta, paraderosCercanos: [] };
         }
-        rutasMap[ruta].paraderosCercanos.push({ nombre: rec.NOMBRE || '', distancia: Math.round(dist) });
+        rutasMap[ruta].paraderosCercanos.push({
+          nombre: rec.NOMBRE || '',
+          distancia: Math.round(dist),
+        });
       }
     }
 
@@ -348,7 +367,11 @@ export class GraphController {
       porLocalidad[nombre] = { siniestros: count };
       total += count;
     }
-    return { total_siniestros: total, por_localidad: porLocalidad, fuente: 'ArcGIS FeatureServer — SDM Bogotá' };
+    return {
+      total_siniestros: total,
+      por_localidad: porLocalidad,
+      fuente: 'ArcGIS FeatureServer — SDM Bogotá',
+    };
   }
 
   @Get('siniestralidad/heatmap')
@@ -372,10 +395,12 @@ export class GraphController {
   async getSiniestrosByLocalidad(@Param('localidad') localidad: string) {
     const geo = await this.arcgis.getSiniestros2024();
     const filtered = geo.features.filter(
-      (f: any) => f.properties?.LOCALIDAD?.toLowerCase() === localidad.toLowerCase()
+      (f: any) => f.properties?.LOCALIDAD?.toLowerCase() === localidad.toLowerCase(),
     );
     if (!filtered.length) {
-      const disponibles = [...new Set(geo.features.map((f: any) => f.properties?.LOCALIDAD).filter(Boolean))];
+      const disponibles = [
+        ...new Set(geo.features.map((f: any) => f.properties?.LOCALIDAD).filter(Boolean)),
+      ];
       return { error: 'Localidad no encontrada', disponibles };
     }
     return {
