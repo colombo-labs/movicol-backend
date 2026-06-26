@@ -1,3 +1,4 @@
+import { Public } from '../../auth/decorators/public.decorator';
 import { Body, Controller, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
@@ -5,6 +6,7 @@ import { PredictRequestDto } from '../dtos/prediction.dto';
 import { PredictionsService } from '../services/predictions.service';
 
 @ApiTags('Predictions')
+@Public()
 @Controller('predictions')
 export class PredictionsController {
   constructor(private readonly predictionsService: PredictionsService) {}

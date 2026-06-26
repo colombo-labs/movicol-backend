@@ -1,3 +1,4 @@
+import { Public } from '../../auth/decorators/public.decorator';
 import { Body, Controller, Get, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
@@ -8,6 +9,7 @@ import {
 import { RoutePredictionService } from '../services/route-prediction.service';
 
 @ApiTags('Route Prediction')
+@Public()
 @Controller('route-prediction')
 export class RoutePredictionController {
   constructor(private readonly service: RoutePredictionService) {}

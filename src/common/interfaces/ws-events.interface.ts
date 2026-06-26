@@ -20,6 +20,10 @@ export enum WsEvent {
   CHAT_STREAM_TOKEN = 'chat:stream:token',
   CHAT_STREAM_END = 'chat:stream:end',
 
+  // User
+  USER_UPDATED = 'user:updated',
+  USER_FORCE_LOGOUT = 'user:force_logout',
+
   // Alerts
   ALERT_CONGESTION = 'alert:congestion',
   ALERT_INCIDENT = 'alert:incident',
