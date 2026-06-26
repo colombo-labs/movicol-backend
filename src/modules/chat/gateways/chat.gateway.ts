@@ -37,7 +37,7 @@ export class ChatGateway extends BaseGateway {
 
     try {
       // For now, use the full response (non-streaming).
-      // TODO: When AI service supports SSE/streaming, emit token by token.
+      
       const response = await this.chatService.chat({
         message: payload.message,
         sessionId,

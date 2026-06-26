@@ -6,7 +6,7 @@ import { UserFavorite } from '../auth/entities/user-favorite.entity';
 
 @Controller('user/favorites')
 export class FavoritesController {
-  constructor(@InjectRepository(UserFavorite) private favRepo: Repository<UserFavorite>) {}
+  constructor(@InjectRepository(UserFavorite) private readonly favRepo: Repository<UserFavorite>) {}
 
   @Get()
   async list(@CurrentUser('id') userId: string) {
