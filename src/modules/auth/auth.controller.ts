@@ -25,7 +25,7 @@ export class AuthController {
   @Public()
   @Get('google')
   @UseGuards(AuthGuard('google'))
-  googleLogin(@Req() req: any) {
+  googleLogin() {
     // Passport redirects to Google with prompt=select_account
     // configured in GoogleStrategy
   }

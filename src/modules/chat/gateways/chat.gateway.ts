@@ -37,7 +37,7 @@ export class ChatGateway extends BaseGateway {
 
     try {
       // For now, use the full response (non-streaming).
-      
+
       const response = await this.chatService.chat({
         message: payload.message,
         sessionId,
