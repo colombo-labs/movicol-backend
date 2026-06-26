@@ -6,7 +6,7 @@ import { v4 as uuid } from 'uuid';
 import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
-import { Permission } from './entities/permission.entity';
+
 import { RolePermission } from './entities/role-permission.entity';
 import { UserPermission } from '../admin/entities/user-permission.entity';
 import { RedisService } from '../../common/services/redis.service';
@@ -14,12 +14,12 @@ import { RedisService } from '../../common/services/redis.service';
 @Injectable()
 export class AuthService {
   constructor(
-    @InjectRepository(User) private userRepo: Repository<User>,
-    @InjectRepository(RefreshToken) private refreshRepo: Repository<RefreshToken>,
-    @InjectRepository(RolePermission) private rolePermRepo: Repository<RolePermission>,
-    @InjectRepository(UserPermission) private userPermRepo: Repository<UserPermission>,
-    private jwt: JwtService,
-    private redis: RedisService,
+    @InjectRepository(User) private readonly userRepo: Repository<User>,
+    @InjectRepository(RefreshToken) private readonly refreshRepo: Repository<RefreshToken>,
+    @InjectRepository(RolePermission) private readonly rolePermRepo: Repository<RolePermission>,
+    @InjectRepository(UserPermission) private readonly userPermRepo: Repository<UserPermission>,
+    private readonly jwt: JwtService,
+    private readonly redis: RedisService,
   ) {}
 
   async findOrCreateUser(profile: {

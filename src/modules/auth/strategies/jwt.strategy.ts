@@ -8,8 +8,8 @@ import { RedisService } from '../../../common/services/redis.service';
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
-    private config: ConfigService,
-    private redis: RedisService,
+    private readonly config: ConfigService,
+    private readonly redis: RedisService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([

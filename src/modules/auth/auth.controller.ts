@@ -1,13 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Req,
-  Res,
-  UseGuards,
-  Body,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Controller, Get, Post, Req, Res, UseGuards, UnauthorizedException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
@@ -18,14 +9,14 @@ import { CurrentUser } from './decorators/current-user.decorator';
 @Controller('auth')
 export class AuthController {
   constructor(
-    private authService: AuthService,
-    private config: ConfigService,
+    private readonly authService: AuthService,
+    private readonly config: ConfigService,
   ) {}
 
   @Public()
   @Get('google')
   @UseGuards(AuthGuard('google'))
-  googleLogin(@Req() req: any) {
+  googleLogin() {
     // Passport redirects to Google with prompt=select_account
     // configured in GoogleStrategy
   }

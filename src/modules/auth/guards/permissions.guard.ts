@@ -6,8 +6,8 @@ import { RedisService } from '../../../common/services/redis.service';
 @Injectable()
 export class PermissionsGuard implements CanActivate {
   constructor(
-    private reflector: Reflector,
-    private redis: RedisService,
+    private readonly reflector: Reflector,
+    private readonly redis: RedisService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -24,7 +24,7 @@ export class PermissionsGuard implements CanActivate {
 
     // Get permissions from Redis cache
     const cached = await this.redis.get(`permissions:${user.id}`);
-    const userPermissions: string[] = cached || [];
+    const userPermissions: string[] = (cached as string[]) || [];
 
     const has = required.some((p) => userPermissions.includes(p));
     if (!has) {
