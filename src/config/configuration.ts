@@ -1,4 +1,4 @@
-export default () => ({
+export default function configuration() { return ({
   port: Number.parseInt(process.env.PORT ?? '3001', 10),
   database: {
     host: process.env.DB_HOST || 'localhost',
@@ -10,4 +10,4 @@ export default () => ({
   ai: {
     serviceUrl: process.env.AI_SERVICE_URL || 'http://localhost:8000',
   },
-});
+}); }

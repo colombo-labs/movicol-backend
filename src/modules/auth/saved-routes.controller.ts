@@ -6,7 +6,7 @@ import { SavedRoute } from './entities/saved-route.entity';
 
 @Controller('saved-routes')
 export class SavedRoutesController {
-  constructor(@InjectRepository(SavedRoute) private repo: Repository<SavedRoute>) {}
+  constructor(@InjectRepository(SavedRoute) private readonly repo: Repository<SavedRoute>) {}
 
   @Get()
   findAll(@CurrentUser('id') userId: string) {

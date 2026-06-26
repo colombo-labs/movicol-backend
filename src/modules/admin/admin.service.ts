@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { User } from '../auth/entities/user.entity';
 import { Role } from '../auth/entities/role.entity';
 import { Permission } from '../auth/entities/permission.entity';
@@ -12,13 +12,13 @@ import { UserGateway } from '../auth/gateways/user.gateway';
 @Injectable()
 export class AdminService {
   constructor(
-    @InjectRepository(User) private userRepo: Repository<User>,
-    @InjectRepository(Role) private roleRepo: Repository<Role>,
-    @InjectRepository(Permission) private permissionRepo: Repository<Permission>,
-    @InjectRepository(RolePermission) private rolePermRepo: Repository<RolePermission>,
-    @InjectRepository(UserPermission) private userPermRepo: Repository<UserPermission>,
-    private redis: RedisService,
-    private userGateway: UserGateway,
+    @InjectRepository(User) private readonly userRepo: Repository<User>,
+    @InjectRepository(Role) private readonly roleRepo: Repository<Role>,
+    @InjectRepository(Permission) private readonly permissionRepo: Repository<Permission>,
+    @InjectRepository(RolePermission) private readonly rolePermRepo: Repository<RolePermission>,
+    @InjectRepository(UserPermission) private readonly userPermRepo: Repository<UserPermission>,
+    private readonly redis: RedisService,
+    private readonly userGateway: UserGateway,
   ) {}
 
   // ==================== USERS ====================
@@ -42,8 +42,11 @@ export class AdminService {
     if (!user) throw new NotFoundException('Usuario no encontrado');
     user.isActive = !user.isActive;
     await this.userRepo.save(user);
-    if (!user.isActive) this.userGateway.notifyForceLogout(Number(userId), 'account_disabled');
-    else this.userGateway.notifyUserUpdated(Number(userId));
+    if (user.isActive) {
+      this.userGateway.notifyUserUpdated(Number(userId));
+    } else {
+      this.userGateway.notifyForceLogout(Number(userId), 'account_disabled');
+    }
     return { isActive: user.isActive };
   }
 

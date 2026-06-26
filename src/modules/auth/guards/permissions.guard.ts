@@ -6,8 +6,8 @@ import { RedisService } from '../../../common/services/redis.service';
 @Injectable()
 export class PermissionsGuard implements CanActivate {
   constructor(
-    private reflector: Reflector,
-    private redis: RedisService,
+    private readonly reflector: Reflector,
+    private readonly redis: RedisService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Controller, Delete, Get, Param, Patch } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CurrentUser } from './decorators/current-user.decorator';
@@ -6,7 +6,7 @@ import { Notification } from './entities/notification.entity';
 
 @Controller('notifications')
 export class NotificationsController {
-  constructor(@InjectRepository(Notification) private repo: Repository<Notification>) {}
+  constructor(@InjectRepository(Notification) private readonly repo: Repository<Notification>) {}
 
   @Get()
   findAll(@CurrentUser('id') userId: string) {

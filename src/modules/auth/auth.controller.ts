@@ -18,8 +18,8 @@ import { CurrentUser } from './decorators/current-user.decorator';
 @Controller('auth')
 export class AuthController {
   constructor(
-    private authService: AuthService,
-    private config: ConfigService,
+    private readonly authService: AuthService,
+    private readonly config: ConfigService,
   ) {}
 
   @Public()
