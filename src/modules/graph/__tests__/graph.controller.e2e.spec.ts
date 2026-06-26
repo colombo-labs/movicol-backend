@@ -52,37 +52,38 @@ describe('GraphController (e2e)', () => {
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('rutas');
       expect(res.body.rutas.length).toBeGreaterThan(0);
-      expect(res.body.rutas[0]).toHaveProperty('codigo');
-      expect(res.body.rutas[0]).toHaveProperty('origen');
     });
   });
 
   describe('GET /graph/sitp/rutas', () => {
-    it('should return rutas with cenefa', async () => {
+    it('should return rutas with metadata', async () => {
       const res = await request(app.getHttpServer()).get('/graph/sitp/rutas');
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('rutas');
       expect(res.body.rutas[0]).toHaveProperty('ruta');
-      expect(res.body.rutas[0]).toHaveProperty('cenefa');
+      expect(res.body.rutas[0]).toHaveProperty('codigo');
+      expect(res.body.rutas[0]).toHaveProperty('origen');
+      expect(res.body.rutas[0]).toHaveProperty('destino');
     });
   });
 
   describe('GET /graph/sitp/paraderos', () => {
-    it('should return paraderos', async () => {
+    it('should return GeoJSON FeatureCollection', async () => {
       const res = await request(app.getHttpServer()).get('/graph/sitp/paraderos');
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('features');
+      expect(res.body.type).toBe('FeatureCollection');
     });
   });
 
   describe('GET /graph/rutas-cercanas', () => {
-    it('should return nearby routes with distance', async () => {
+    it('should return nearby stops with distance', async () => {
       const res = await request(app.getHttpServer()).get(
         '/graph/rutas-cercanas?lat=4.69&lng=-74.11&radius=500',
       );
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('total');
-      expect(res.body).toHaveProperty('rutas');
+      expect(res.body).toHaveProperty('paraderos_cercanos');
     });
   });
 
@@ -100,6 +101,7 @@ describe('GraphController (e2e)', () => {
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('totalParaderos');
       expect(res.body).toHaveProperty('totalRutas');
+      expect(res.body).toHaveProperty('fuente');
     });
   });
 });

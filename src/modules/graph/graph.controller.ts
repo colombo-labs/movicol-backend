@@ -1,12 +1,11 @@
 import { Public } from '../auth/decorators/public.decorator';
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Feature, Point } from 'geojson';
 
+import { ArcGisService } from '../../common/services/arcgis.service';
 import { HttpClientService } from '../../common/services/http-client.service';
 import { RedisService } from '../../common/services/redis.service';
-
-import * as fs from 'node:fs';
-import * as path from 'node:path';
 
 // Haversine distance in meters
 function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -21,21 +20,7 @@ function haversine(lat1: number, lon1: number, lat2: number, lon2: number): numb
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-const DATA_DIR = process.env.DATA_PATH || path.join(process.cwd(), '..', 'movicol-data', 'exports');
-
-function loadGeoJson(filename: string) {
-  const primary = path.join(DATA_DIR, filename);
-  if (fs.existsSync(primary)) {
-    return JSON.parse(fs.readFileSync(primary, 'utf-8'));
-  }
-  const backend = path.join(DATA_DIR, 'backend', filename);
-  if (fs.existsSync(backend)) {
-    return JSON.parse(fs.readFileSync(backend, 'utf-8'));
-  }
-  throw new Error(`GeoJSON file not found: ${filename} (tried ${primary} and ${backend})`);
-}
-
-const GEO_TTL = 600; // 10 min for static infrastructure data
+const GEO_TTL = 600; // 10 min for AI-proxied data
 
 @ApiTags('Graph')
 @Public()
@@ -44,6 +29,7 @@ export class GraphController {
   constructor(
     private readonly httpClient: HttpClientService,
     private readonly redis: RedisService,
+    private readonly arcgis: ArcGisService,
   ) {}
 
   @Get('stats')
@@ -66,7 +52,7 @@ export class GraphController {
     const cached = await this.redis.get(key);
     if (cached) return cached;
     const data = await this.httpClient.get(`/graph/heatmap?hour=${h}`);
-    await this.redis.set(key, data, 60); // 1 min TTL for dynamic data
+    await this.redis.set(key, data, 60);
     return data;
   }
 
@@ -127,194 +113,184 @@ export class GraphController {
     return this.httpClient.get(`/graph/stations/${encodeURIComponent(id)}/neighbors`);
   }
 
+  // ─── TransMilenio — from ArcGIS REST API ──────────────────────────
+
   @Get('tm/troncales')
-  @ApiOperation({ summary: 'Get TransMilenio trunk lines GeoJSON (Redis cached)' })
+  @ApiOperation({ summary: 'Get TransMilenio trunk lines GeoJSON (ArcGIS → Redis cached 24h)' })
   async getTmTroncales() {
-    const key = 'graph:tm:troncales';
-    const cached = await this.redis.get(key);
-    if (cached) return cached;
-    const data = await this.httpClient.get('/graph/tm/troncales');
-    await this.redis.set(key, data, GEO_TTL);
-    return data;
+    return this.arcgis.getTmTroncales();
   }
 
   @Get('tm/estaciones')
-  @ApiOperation({ summary: 'Get TransMilenio stations GeoJSON (Redis cached)' })
+  @ApiOperation({ summary: 'Get TransMilenio stations GeoJSON (ArcGIS → Redis cached 24h)' })
   async getTmEstaciones() {
-    const key = 'graph:tm:estaciones';
-    const cached = await this.redis.get(key);
-    if (cached) return cached;
-    const data = await this.httpClient.get('/graph/tm/estaciones');
-    await this.redis.set(key, data, GEO_TTL);
-    return data;
+    return this.arcgis.getTmEstaciones();
   }
+
+  @Get('tm/rutas')
+  @ApiOperation({ summary: 'Get TransMilenio troncal routes (ArcGIS → Redis cached 24h)' })
+  async getTmRutas() {
+    const tipoBusMap: Record<number, string> = {
+      1: 'BIARTICULADO',
+      2: 'ARTICULADO',
+      3: 'DUAL',
+      4: 'PADRON',
+    };
+    const geo = await this.arcgis.getTmRutas();
+    const rutas = geo.features.map((f: any) => {
+      const p = f.properties ?? {};
+      const coords = f.geometry?.coordinates?.map((c: number[]) => [c[1], c[0]]) ?? [];
+      return {
+        codigo: p.route_name || '',
+        nombre: p.nombre_rut || p.route_name || '',
+        origen: p.origen_rut || '',
+        destino: p.destino_ru || '',
+        tipo_bus: tipoBusMap[p.tipo_bus_r] || 'DUAL',
+        tipo_ruta: p.tipo_opera || 'Normal',
+        horario_lv: p.horario_lu || '',
+        horario_sab: p.horario_sa?.trim() || '',
+        horario_dom: p.horario_do || '',
+        estado: p.estado_rut || 'OPERATIVA',
+        coords,
+        estaciones: [],
+      };
+    });
+    return { total: rutas.length, rutas };
+  }
+
+  // ─── SITP — from ArcGIS REST API ─────────────────────────────────
+
   @Get('sitp/paraderos')
-  @ApiOperation({ summary: 'Get SITP bus stops GeoJSON' })
+  @ApiOperation({ summary: 'Get SITP bus stops GeoJSON (ArcGIS → Redis cached 24h)' })
   async getSitpParaderos() {
-    const data = loadGeoJson('sitp_paraderos.geojson');
-    return data;
+    return this.arcgis.getSitpParaderos();
   }
 
   @Get('sitp/paraderos/nearby')
   @ApiOperation({ summary: 'Find SITP bus stops near a geographic point' })
-  getSitpParaderosNearby(
+  async getSitpParaderosNearby(
     @Query('lat') lat: string,
     @Query('lon') lon: string,
     @Query('radius') radius?: string,
   ) {
     const targetLat = Number.parseFloat(lat);
     const targetLon = Number.parseFloat(lon);
-    const r = radius ? Number.parseFloat(radius) : 500; // default 500 meters
+    const r = radius ? Number.parseFloat(radius) : 500;
 
-    const paraderos = loadGeoJson('sitp_paraderos.geojson');
-    const cercanos = [];
+    const paraderos = await this.arcgis.getSitpParaderos();
+    const cercanos: Feature[] = [];
 
     for (const feat of paraderos.features) {
-      if (!feat.geometry?.coordinates) continue;
-      const pLon = feat.geometry.coordinates[0];
-      const pLat = feat.geometry.coordinates[1];
+      if (feat.geometry?.type !== 'Point') continue;
+      const [pLon, pLat] = (feat.geometry as Point).coordinates;
       const dist = haversine(targetLat, targetLon, pLat, pLon);
 
       if (dist <= r) {
         cercanos.push({
           ...feat,
-          properties: {
-            ...feat.properties,
-            distancia_metros: Math.round(dist),
-          },
+          properties: { ...feat.properties, distancia_metros: Math.round(dist) },
         });
       }
     }
 
-    cercanos.sort((a, b) => a.properties.distancia_metros - b.properties.distancia_metros);
-
-    return {
-      type: 'FeatureCollection',
-      features: cercanos.slice(0, 50),
-    };
+    cercanos.sort(
+      (a, b) => (a.properties?.distancia_metros ?? 0) - (b.properties?.distancia_metros ?? 0),
+    );
+    return { type: 'FeatureCollection', features: cercanos.slice(0, 50) };
   }
 
   @Get('sitp/paraderos/:id')
   @ApiOperation({ summary: 'Get specific SITP bus stop details' })
-  getSitpParadero(@Param('id') id: string) {
-    const paraderos = loadGeoJson('sitp_paraderos.geojson');
-    // En el geojson los IDs pueden ser de tipo string o number dependiendo del campo
+  async getSitpParadero(@Param('id') id: string) {
+    const paraderos = await this.arcgis.getSitpParaderos();
     const targetId = String(id);
     const paradero = paraderos.features.find(
-      (f: any) =>
+      (f: Feature) =>
         String(f.id) === targetId ||
-        String(f.properties?.objectid) === targetId ||
-        String(f.properties?.cenefa) === targetId,
+        String(f.properties?.OBJECTID) === targetId ||
+        String(f.properties?.NTRCODIGO) === targetId,
     );
-
-    if (!paradero) {
-      return { error: 'Paradero no encontrado' };
-    }
+    if (!paradero) return { error: 'Paradero no encontrado' };
     return paradero;
   }
 
   @Get('sitp/rutas')
-  @ApiOperation({ summary: 'Get SITP routes with ordered stops and frequencies' })
+  @ApiOperation({ summary: 'Get SITP routes with ordered stops (ArcGIS → Redis cached 24h)' })
   async getSitpRutas() {
-    const raw = loadGeoJson('sitp_rutas_paraderos.geojson');
-
-    let frecuencias: Record<string, any> = {};
-    try {
-      frecuencias = loadGeoJson('sitp_rutas_frecuencias.json');
-    } catch (e) {
-      // Si el archivo no existe, no falla
-    }
-
+    const [records, colorMap] = await Promise.all([
+      this.arcgis.getParaderosRuta(),
+      this.arcgis.getRutaColorMap(),
+    ]);
+    const tipoToColor: Record<string, string> = {
+      URBANA: '1565C0',
+      ALIMENTADORA: '2E7D32',
+      COMPLEMENTARIA: 'E65100',
+      ESPECIAL: '6A1B9A',
+    };
     const rutasMap: Record<
       string,
       {
         ruta: string;
         cenefa: string;
-        frecuencia_base_min: number;
-        tipo_servicio: string;
-        paraderos: { lat: number; lon: number; nombre: string; orden: string }[];
+        tipo: string;
+        paraderos: { lat: number; lon: number; nombre: string }[];
       }
     > = {};
-    for (const feat of raw.features) {
-      const props = feat.properties;
-      const geom = feat.geometry;
-      if (!geom?.coordinates || !props?.ruta) continue;
-      const ruta = props.ruta;
+    for (const r of records) {
+      if (!r.RUTA) continue;
+      const ruta = r.RUTA;
       if (!rutasMap[ruta]) {
-        rutasMap[ruta] = {
-          ruta,
-          cenefa: props.cenefa || '',
-          frecuencia_base_min: frecuencias[ruta]?.frecuencia_base_min || 15,
-          tipo_servicio: frecuencias[ruta]?.tipo_servicio || 'Urbano',
-          paraderos: [],
-        };
+        // Match exact route_name first (includes suffix a/c/e), fallback to URBANA
+        const tipo = colorMap[ruta] || 'URBANA';
+        rutasMap[ruta] = { ruta, cenefa: tipoToColor[tipo] || '1565C0', tipo, paraderos: [] };
       }
-      rutasMap[ruta].paraderos.push({
-        lat: geom.coordinates[1],
-        lon: geom.coordinates[0],
-        nombre: props.nombre || '',
-        orden: props.orden || '',
-      });
+      const lat = Number.parseFloat(String(r.Latitud).replace(',', '.'));
+      const lon = Number.parseFloat(String(r.Longitud).replace(',', '.'));
+      if (!Number.isNaN(lat) && !Number.isNaN(lon)) {
+        rutasMap[ruta].paraderos.push({ lat, lon, nombre: r.NOMBRE || '' });
+      }
     }
-    // Sort paraderos by orden within each ruta
-    const rutas = Object.values(rutasMap).map((r) => {
-      r.paraderos.sort((a, b) => a.orden.localeCompare(b.orden));
-      return r;
-    });
+    const rutas = Object.values(rutasMap);
     return { total: rutas.length, rutas };
   }
 
   @Get('sitp/rutas/shapes')
-  @ApiOperation({ summary: 'Get exact SITP routes shapes (LineStrings)' })
+  @ApiOperation({ summary: 'Get SITP routes as GeoJSON LineStrings (ArcGIS)' })
   async getSitpRutasShapes() {
-    try {
-      const data = loadGeoJson('sitp_rutas_shapes.geojson');
-      return data;
-    } catch (e) {
-      return { error: 'Shapes file not found. Have you executed HT1 pipeline?' };
-    }
+    return this.arcgis.getSitpRutas();
   }
 
-  @Get('tm/rutas')
-  @ApiOperation({ summary: 'Get TransMilenio troncal routes (126 routes)' })
-  async getTmRutas() {
-    const rutas = JSON.parse(
-      fs.readFileSync(path.join(DATA_DIR, 'tm_rutas_troncales.json'), 'utf-8'),
-    );
-    return { total: rutas.length, rutas };
-  }
+  // ─── Computed endpoints ───────────────────────────────────────────
 
   @Get('accesibilidad')
-  @ApiOperation({ summary: 'Get accessibility metrics from real data' })
+  @ApiOperation({ summary: 'Get accessibility metrics from ArcGIS data' })
   async getAccesibilidad() {
-    // Load real data
-    const paraderos = loadGeoJson('sitp_paraderos.geojson');
-    const rutasData = loadGeoJson('sitp_rutas_paraderos.geojson');
+    const paraderos = await this.arcgis.getSitpParaderos();
+    const records = await this.arcgis.getParaderosRuta();
 
-    const totalParaderos = paraderos.features ? paraderos.features.length : 0;
-    const totalRutas = new Set(
-      rutasData.features.filter((f: any) => f.properties?.ruta).map((f: any) => f.properties.ruta),
-    ).size;
-    const totalPuntos = rutasData.features.length;
-    const rutasTroncales = new Set(
-      rutasData.features
-        .filter((f: any) => f.properties?.ruta && /^[A-Z]/.test(f.properties.ruta))
-        .map((f: any) => f.properties.ruta),
-    ).size;
-    const rutasZonales = totalRutas - rutasTroncales;
+    const totalParaderos = paraderos.features.length;
+    const totalRutas = new Set(records.map((r: any) => r.RUTA).filter(Boolean)).size;
+    const totalPuntos = records.length;
 
-    // Calculate coverage based on lat/lon spread
-    const lats = paraderos.features
-      .filter((f: any) => f.geometry?.coordinates)
-      .map((f: any) => f.geometry.coordinates[1]);
-    const lons = paraderos.features
-      .filter((f: any) => f.geometry?.coordinates)
-      .map((f: any) => f.geometry.coordinates[0]);
+    const lats: number[] = [];
+    const lons: number[] = [];
+    for (const f of paraderos.features) {
+      if (f.geometry?.type === 'Point') {
+        const [lon, lat] = (f.geometry as Point).coordinates;
+        lats.push(lat);
+        lons.push(lon);
+      }
+    }
     const latRange = Math.max(...lats) - Math.min(...lats);
     const lonRange = Math.max(...lons) - Math.min(...lons);
-    const areaCovered = latRange * lonRange * 111 * 111; // approx km2
-    const bogotaArea = 1775; // km2
+    const areaCovered = latRange * lonRange * 111 * 111;
+    const bogotaArea = 1775;
     const coveragePercent = Math.min(Math.round((areaCovered / bogotaArea) * 100), 95);
+
+    const rutasTroncales = new Set(
+      records.filter((r: any) => r.RUTA && /^[A-Z]/.test(r.RUTA)).map((r: any) => r.RUTA),
+    ).size;
+    const rutasZonales = totalRutas - rutasTroncales;
 
     return {
       totalParaderos,
@@ -325,84 +301,121 @@ export class GraphController {
       cobertura: coveragePercent,
       areaCubierta: Math.round(areaCovered),
       areaBogota: bogotaArea,
+      fuente: 'ArcGIS FeatureServer — datos.gov.co',
     };
   }
 
   @Get('rutas-cercanas')
-  @ApiOperation({ summary: 'Find routes passing near a geographic point' })
-  getRutasCercanas(
+  @ApiOperation({ summary: 'Find SITP routes passing near a geographic point' })
+  async getRutasCercanas(
     @Query('lat') lat: string,
     @Query('lng') lng: string,
     @Query('radius') radius?: string,
   ) {
     const targetLat = Number.parseFloat(lat);
     const targetLng = Number.parseFloat(lng);
-    const r = radius ? Number.parseFloat(radius) : 800; // meters (default 800m)
+    const r = radius ? Number.parseFloat(radius) : 800;
 
-    const raw = loadGeoJson('sitp_rutas_paraderos.geojson');
-
-    // Haversine distance in meters
-
-    // Find paraderos within radius and collect routes
+    const records = await this.arcgis.getParaderosRuta();
     const rutasMap: Record<
       string,
       { ruta: string; cenefa: string; paraderosCercanos: { nombre: string; distancia: number }[] }
     > = {};
 
-    for (const feat of raw.features) {
-      const props = feat.properties;
-      const geom = feat.geometry;
-      if (!geom?.coordinates || !props?.ruta) continue;
-      const pLat = geom.coordinates[1];
-      const pLng = geom.coordinates[0];
+    for (const rec of records) {
+      if (!rec.RUTA) continue;
+      const pLat = Number.parseFloat(String(rec.Latitud).replace(',', '.'));
+      const pLng = Number.parseFloat(String(rec.Longitud).replace(',', '.'));
+      if (Number.isNaN(pLat) || Number.isNaN(pLng)) continue;
       const dist = haversine(targetLat, targetLng, pLat, pLng);
       if (dist <= r) {
-        const ruta = props.ruta;
+        const ruta = rec.RUTA;
         if (!rutasMap[ruta]) {
-          rutasMap[ruta] = { ruta, cenefa: props.cenefa || ruta, paraderosCercanos: [] };
+          rutasMap[ruta] = { ruta, cenefa: rec.CENEFA || ruta, paraderosCercanos: [] };
         }
         rutasMap[ruta].paraderosCercanos.push({
-          nombre: props.nombre || '',
+          nombre: rec.NOMBRE || '',
           distancia: Math.round(dist),
         });
       }
     }
 
-    // Sort paraderos by distance within each ruta, and sort rutas by min distance
-    const rutas = Object.values(rutasMap).map((r) => {
-      r.paraderosCercanos.sort((a, b) => a.distancia - b.distancia);
-      return { ...r, distanciaMinima: r.paraderosCercanos[0]?.distancia || 9999 };
+    const rutas = Object.values(rutasMap).map((rt) => {
+      rt.paraderosCercanos.sort((a, b) => a.distancia - b.distancia);
+      return { ...rt, distanciaMinima: rt.paraderosCercanos[0]?.distancia || 9999 };
     });
     rutas.sort((a, b) => a.distanciaMinima - b.distanciaMinima);
 
     return { total: rutas.length, radio: r, rutas: rutas.slice(0, 20) };
   }
 
+  @Get('carril-preferencial')
+  @ApiOperation({ summary: 'Carriles preferenciales SITP (ArcGIS → Redis cached 24h)' })
+  async getCarrilPreferencial() {
+    return this.arcgis.getCarrilPreferencial();
+  }
+
   @Get('siniestralidad')
-  @ApiOperation({ summary: 'Siniestralidad por localidad con scores de seguridad' })
-  getSiniestralidad() {
-    const data = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'siniestralidad.json'), 'utf-8'));
+  @ApiOperation({ summary: 'Siniestralidad por localidad (ArcGIS → Redis cached 24h)' })
+  async getSiniestralidad() {
+    const localidades = await this.arcgis.getSiniestrosPorLocalidad();
+    const porLocalidad: Record<string, any> = {};
+    let total = 0;
+    for (const f of localidades.features) {
+      const nombre = f.properties?.LocNombre || f.properties?.Localidad || '';
+      const count = f.properties?.COUNT_FORMULARIO || f.properties?.FREQUENCY_1 || 0;
+      porLocalidad[nombre] = { siniestros: count };
+      total += count;
+    }
     return {
-      total_siniestros: data.total_siniestros,
-      por_localidad: data.por_localidad,
-      metadata: data.metadata,
+      total_siniestros: total,
+      por_localidad: porLocalidad,
+      fuente: 'ArcGIS FeatureServer — SDM Bogotá',
     };
   }
 
   @Get('siniestralidad/heatmap')
-  @ApiOperation({ summary: 'Puntos georreferenciados para heatmap de siniestros' })
-  getSiniestrosHeatmap() {
-    const data = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'siniestralidad.json'), 'utf-8'));
-    return data.heatmap_points;
+  @ApiOperation({ summary: 'Puntos georreferenciados para heatmap de siniestros 2024' })
+  async getSiniestrosHeatmap() {
+    const geo = await this.arcgis.getSiniestros2024();
+    const points = geo.features
+      .filter((f: any) => f.geometry?.type === 'Point')
+      .map((f: any) => ({
+        lat: f.geometry.coordinates[1],
+        lng: f.geometry.coordinates[0],
+        gravedad: f.properties?.GRAVEDAD30D || '',
+        clase: f.properties?.CLASE_ACC || '',
+        localidad: f.properties?.LOCALIDAD || '',
+      }));
+    return points;
   }
 
   @Get('siniestralidad/localidad/:localidad')
-  @ApiOperation({ summary: 'Siniestralidad de una localidad específica' })
-  getSiniestrosByLocalidad(@Param('localidad') localidad: string) {
-    const data = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'siniestralidad.json'), 'utf-8'));
-    const loc = data.por_localidad[localidad];
-    if (!loc)
-      return { error: 'Localidad no encontrada', disponibles: Object.keys(data.por_localidad) };
-    return { localidad, ...loc };
+  @ApiOperation({ summary: 'Siniestros 2024 filtrados por localidad' })
+  async getSiniestrosByLocalidad(@Param('localidad') localidad: string) {
+    const geo = await this.arcgis.getSiniestros2024();
+    const filtered = geo.features.filter(
+      (f: any) => f.properties?.LOCALIDAD?.toLowerCase() === localidad.toLowerCase(),
+    );
+    if (!filtered.length) {
+      const disponibles = [
+        ...new Set(geo.features.map((f: any) => f.properties?.LOCALIDAD).filter(Boolean)),
+      ];
+      return { error: 'Localidad no encontrada', disponibles };
+    }
+    return {
+      localidad,
+      total: filtered.length,
+      siniestros: filtered.slice(0, 100).map((f: any) => ({
+        lat: f.geometry?.coordinates?.[1],
+        lng: f.geometry?.coordinates?.[0],
+        fecha: f.properties?.MES_OCURRENCIA_ACC,
+        dia: f.properties?.DIA_OCURRENCIA_ACC,
+        hora: f.properties?.HORA_OCURRENCIA_ACC,
+        clase: f.properties?.CLASE_ACC,
+        gravedad: f.properties?.GRAVEDAD30D,
+        direccion: f.properties?.DIRECCION,
+      })),
+    };
   }
 }
