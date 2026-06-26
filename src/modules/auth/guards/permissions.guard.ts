@@ -24,7 +24,7 @@ export class PermissionsGuard implements CanActivate {
 
     // Get permissions from Redis cache
     const cached = await this.redis.get(`permissions:${user.id}`);
-    const userPermissions: string[] = cached || [];
+    const userPermissions: string[] = (cached as string[]) || [];
 
     const has = required.some((p) => userPermissions.includes(p));
     if (!has) {
