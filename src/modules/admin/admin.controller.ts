@@ -1,13 +1,4 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Put,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 
@@ -43,10 +34,7 @@ export class AdminController {
 
   @Put('users/:id/permissions')
   @RequirePermissions('admin.users')
-  setUserExtraPermissions(
-    @Param('id') id: string,
-    @Body('permissionIds') permissionIds: number[],
-  ) {
+  setUserExtraPermissions(@Param('id') id: string, @Body('permissionIds') permissionIds: number[]) {
     return this.adminService.setUserExtraPermissions(id, permissionIds);
   }
 
@@ -66,10 +54,7 @@ export class AdminController {
 
   @Put('roles/:id')
   @RequirePermissions('admin.roles')
-  updateRole(
-    @Param('id') id: number,
-    @Body() body: { name?: string; description?: string },
-  ) {
+  updateRole(@Param('id') id: number, @Body() body: { name?: string; description?: string }) {
     return this.adminService.updateRole(id, body);
   }
 
@@ -81,10 +66,7 @@ export class AdminController {
 
   @Put('roles/:id/permissions')
   @RequirePermissions('admin.roles')
-  setRolePermissions(
-    @Param('id') id: number,
-    @Body('permissionIds') permissionIds: number[],
-  ) {
+  setRolePermissions(@Param('id') id: number, @Body('permissionIds') permissionIds: number[]) {
     return this.adminService.setRolePermissions(id, permissionIds);
   }
 

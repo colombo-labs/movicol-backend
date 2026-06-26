@@ -1,4 +1,4 @@
-import { Public } from "../auth/decorators/public.decorator";
+import { Public } from '../auth/decorators/public.decorator';
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 

@@ -6,9 +6,7 @@ import { UserPreference } from './entities/user-preference.entity';
 
 @Controller('preferences')
 export class PreferencesController {
-  constructor(
-    @InjectRepository(UserPreference) private repo: Repository<UserPreference>,
-  ) {}
+  constructor(@InjectRepository(UserPreference) private repo: Repository<UserPreference>) {}
 
   @Get()
   async get(@CurrentUser('id') userId: string) {

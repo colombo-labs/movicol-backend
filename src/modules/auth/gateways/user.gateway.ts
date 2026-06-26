@@ -1,4 +1,9 @@
-import { WebSocketGateway, SubscribeMessage, ConnectedSocket, MessageBody } from '@nestjs/websockets';
+import {
+  WebSocketGateway,
+  SubscribeMessage,
+  ConnectedSocket,
+  MessageBody,
+} from '@nestjs/websockets';
 import { Socket } from 'socket.io';
 import { BaseGateway } from '../../../common/gateways/base.gateway';
 import { WsEvent } from '../../../common/interfaces/ws-events.interface';

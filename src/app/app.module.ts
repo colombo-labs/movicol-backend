@@ -14,8 +14,8 @@ import { GraphModule } from '../modules/graph/graph.module';
 import { HealthModule } from '../modules/health/health.module';
 import { PredictionsModule } from '../modules/predictions/predictions.module';
 import { RoutePredictionModule } from '../modules/route-prediction/route-prediction.module';
-import { RoutesModule } from "../modules/routes/routes.module";
-import { StationsModule } from "../modules/stations/stations.module";
+import { RoutesModule } from '../modules/routes/routes.module';
+import { StationsModule } from '../modules/stations/stations.module';
 
 @Module({
   imports: [
@@ -45,8 +45,6 @@ import { StationsModule } from "../modules/stations/stations.module";
     StationsModule,
     ChatModule,
   ],
-  providers: [
-    { provide: APP_GUARD, useClass: JwtAuthGuard },
-  ],
+  providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }],
 })
 export class AppModule {}
