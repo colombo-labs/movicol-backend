@@ -1,7 +1,7 @@
 import { Public } from '../auth/decorators/public.decorator';
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import type { Feature, FeatureCollection, Point } from 'geojson';
+import type { Feature, Point } from 'geojson';
 
 import { ArcGisService } from '../../common/services/arcgis.service';
 import { HttpClientService } from '../../common/services/http-client.service';
@@ -176,7 +176,7 @@ export class GraphController {
     const cercanos: Feature[] = [];
 
     for (const feat of paraderos.features) {
-      if (!feat.geometry || feat.geometry.type !== 'Point') continue;
+      if (feat.geometry?.type !== 'Point') continue;
       const [pLon, pLat] = (feat.geometry as Point).coordinates;
       const dist = haversine(targetLat, targetLon, pLat, pLon);
 
@@ -231,9 +231,9 @@ export class GraphController {
         const tipo = colorMap[ruta] || 'URBANA';
         rutasMap[ruta] = { ruta, cenefa: tipoToColor[tipo] || '1565C0', tipo, paraderos: [] };
       }
-      const lat = parseFloat(String(r.Latitud).replace(',', '.'));
-      const lon = parseFloat(String(r.Longitud).replace(',', '.'));
-      if (!isNaN(lat) && !isNaN(lon)) {
+      const lat = Number.parseFloat(String(r.Latitud).replace(',', '.'));
+      const lon = Number.parseFloat(String(r.Longitud).replace(',', '.'));
+      if (!Number.isNaN(lat) && !Number.isNaN(lon)) {
         rutasMap[ruta].paraderos.push({ lat, lon, nombre: r.NOMBRE || '' });
       }
     }
@@ -308,9 +308,9 @@ export class GraphController {
 
     for (const rec of records) {
       if (!rec.RUTA) continue;
-      const pLat = parseFloat(String(rec.Latitud).replace(',', '.'));
-      const pLng = parseFloat(String(rec.Longitud).replace(',', '.'));
-      if (isNaN(pLat) || isNaN(pLng)) continue;
+      const pLat = Number.parseFloat(String(rec.Latitud).replace(',', '.'));
+      const pLng = Number.parseFloat(String(rec.Longitud).replace(',', '.'));
+      if (Number.isNaN(pLat) || Number.isNaN(pLng)) continue;
       const dist = haversine(targetLat, targetLng, pLat, pLng);
       if (dist <= r) {
         const ruta = rec.RUTA;
