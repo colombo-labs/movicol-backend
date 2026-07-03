@@ -52,6 +52,7 @@
     "@types/bcrypt": "^6.0.0",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^4.17.21",
+    "@types/geojson": "^7946.0.16",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.14.0",
     "@types/passport-google-oauth20": "^2.0.17",
