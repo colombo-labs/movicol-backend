@@ -1,0 +1,10 @@
+{
+  "id": "env-dev",
+  "name": "MoviCol — Dev",
+  "values": [
+    { "key": "base_url", "value": "https://movicol-dev-backend.up.railway.app", "enabled": true },
+    { "key": "ai_url", "value": "https://movicol-dev-ai.up.railway.app", "enabled": true },
+    { "key": "access_token", "value": "", "enabled": true },
+    { "key": "session_id", "value": "postman-dev-{{$timestamp}}", "enabled": true }
+  ]
+}

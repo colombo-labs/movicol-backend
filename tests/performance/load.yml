@@ -1,0 +1,70 @@
+# MoviCol Backend — Load & Stress Tests (Artillery)
+# Install: npm install -g artillery
+# Run load: artillery run tests/performance/load.yml
+# Run stress: artillery run tests/performance/stress.yml
+# Report: artillery run tests/performance/load.yml --output results/load.json && artillery report results/load.json
+
+config:
+  target: "http://localhost:3001"
+  phases:
+    # Warm up
+    - duration: 10
+      arrivalRate: 5
+      name: "Warm up"
+    # Ramp up
+    - duration: 30
+      arrivalRate: 10
+      rampTo: 50
+      name: "Ramp up to 50 req/s"
+    # Sustained load
+    - duration: 30
+      arrivalRate: 50
+      name: "Sustained load (50 req/s)"
+    # Cool down
+    - duration: 10
+      arrivalRate: 10
+      name: "Cool down"
+
+scenarios:
+  - name: "Chat conversation"
+    weight: 40
+    flow:
+      - post:
+          url: "/chat"
+          json:
+            message: "hola"
+            sessionId: "load-{{ $randomNumber(1, 100) }}"
+          expect:
+            - statusCode: 201
+      - think: 1
+      - post:
+          url: "/chat"
+          json:
+            message: "ir de usaquen al centro"
+            sessionId: "load-{{ $randomNumber(1, 100) }}"
+          expect:
+            - statusCode: 201
+
+  - name: "Health check"
+    weight: 10
+    flow:
+      - get:
+          url: "/health"
+          expect:
+            - statusCode: 200
+
+  - name: "Get stations"
+    weight: 25
+    flow:
+      - get:
+          url: "/graph/tm/estaciones"
+          expect:
+            - statusCode: 200
+
+  - name: "Get troncales"
+    weight: 25
+    flow:
+      - get:
+          url: "/graph/tm/troncales"
+          expect:
+            - statusCode: 200

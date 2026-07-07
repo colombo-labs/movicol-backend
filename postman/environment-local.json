@@ -1,0 +1,10 @@
+{
+  "id": "env-local",
+  "name": "MoviCol — Local",
+  "values": [
+    { "key": "base_url", "value": "http://localhost:3001", "enabled": true },
+    { "key": "ai_url", "value": "http://localhost:8000", "enabled": true },
+    { "key": "access_token", "value": "", "enabled": true },
+    { "key": "session_id", "value": "postman-local-{{$timestamp}}", "enabled": true }
+  ]
+}

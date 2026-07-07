@@ -1,0 +1,2401 @@
+{
+  "info": {
+    "name": "MoviCol API — Complete",
+    "description": "Colección completa de todos los endpoints de MoviCol",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "{{base_url}}"
+    },
+    {
+      "key": "ai_url",
+      "value": "{{ai_url}}"
+    },
+    {
+      "key": "session_id",
+      "value": "postman-{{$timestamp}}"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "exec": [
+          "pm.variables.set('timestamp', Date.now());",
+          "pm.variables.set('session_id', 'postman-' + Date.now());",
+          "const token = pm.environment.get('access_token');",
+          "if (token) pm.request.headers.add({key:'Authorization',value:'Bearer '+token});",
+          "",
+          "// Track request count for monitoring",
+          "let count = pm.environment.get('request_count') || 0;",
+          "pm.environment.set('request_count', Number(count) + 1);"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "exec": [
+          "pm.test('Response time < 5s', () => pm.expect(pm.response.responseTime).to.be.below(5000));"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "🔐 Auth Flow (run first)",
+      "item": [
+        {
+          "name": "Login → Get Token",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/auth/me"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// If no token, skip — endpoints that need auth will get 401",
+                  "// To test authenticated flows, manually set access_token in environment",
+                  "// after logging in via browser (cookie → paste token)",
+                  "console.log('Auth check: looking for access_token in environment...');",
+                  "const token = pm.environment.get('access_token');",
+                  "if (!token) {",
+                  "    console.log('No token set. Authenticated endpoints will return 401.');",
+                  "    console.log('To authenticate: login via browser, copy cookie, set access_token env var.');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const user = pm.response.json();",
+                  "    pm.environment.set('user_id', user.id);",
+                  "    pm.environment.set('user_name', user.name);",
+                  "    pm.environment.set('user_role', user.role?.name || 'user');",
+                  "    console.log('Authenticated as: ' + user.name + ' (' + user.role?.name + ')');",
+                  "    pm.test('User authenticated', () => {",
+                  "        pm.expect(user).to.have.property('id');",
+                  "        pm.expect(user).to.have.property('name');",
+                  "        pm.expect(user).to.have.property('email');",
+                  "    });",
+                  "} else {",
+                  "    console.log('Not authenticated (401). Running public endpoints only.');",
+                  "    pm.environment.set('user_id', '');",
+                  "    pm.test('No auth — expected 401', () => {",
+                  "        pm.expect(pm.response.code).to.eql(401);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Backend Health",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/health"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Body has status=ok', () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b.status).to.eql('ok');",
+                  "    pm.expect(b.service).to.eql('movicol-backend');",
+                  "    pm.expect(b).to.have.property('version');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "AI Health",
+          "request": {
+            "method": "GET",
+            "url": "{{ai_url}}/health"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('AI service ok', () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b.status).to.eql('ok');",
+                  "    pm.expect(b.service).to.eql('movicol-ai');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Chat",
+      "item": [
+        {
+          "name": "Greeting",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/chat",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"hola\",\n  \"sessionId\": \"{{session_id}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Response schema', () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b).to.have.property('response');",
+                  "    pm.expect(b).to.have.property('sessionId');",
+                  "    pm.expect(b).to.have.property('sources');",
+                  "    pm.expect(b).to.have.property('actions');",
+                  "    pm.expect(b.response).to.be.a('string');",
+                  "    pm.expect(b.sources).to.be.an('array');",
+                  "    pm.expect(b.actions).to.be.an('array');",
+                  "});",
+                  "pm.test('Greeting mentions MoviBot', () => {",
+                  "    pm.expect(pm.response.json().response).to.include('MoviBot');",
+                  "});",
+                  "pm.test('Response is not empty', () => {",
+                  "    pm.expect(pm.response.json().response.length).to.be.above(20);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Plan Route",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/chat",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"ir de usaquen al centro\",\n  \"sessionId\": \"{{session_id}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Asks for confirmation', () => {",
+                  "    const r = pm.response.json().response.toLowerCase();",
+                  "    pm.expect(r).to.include('quieres');",
+                  "});",
+                  "pm.test('Contains congestion info', () => {",
+                  "    pm.expect(pm.response.json().response).to.include('%');",
+                  "});",
+                  "pm.test('No actions yet (pending)', () => {",
+                  "    pm.expect(pm.response.json().actions).to.have.length(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Confirm",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/chat",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"si\",\n  \"sessionId\": \"{{session_id}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Returns plan_route action', () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b.actions).to.be.an('array');",
+                  "    pm.expect(b.actions.length).to.be.above(0);",
+                  "    pm.expect(b.actions[0].type).to.eql('plan_route');",
+                  "    pm.expect(b.actions[0].data).to.have.property('origin');",
+                  "    pm.expect(b.actions[0].data).to.have.property('destination');",
+                  "});",
+                  "pm.test('Response confirms action', () => {",
+                  "    const r = pm.response.json().response.toLowerCase();",
+                  "    pm.expect(r).to.satisfy(s => s.includes('listo') || s.includes('mapa'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cost Query",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/chat",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"cuanto cuesta\",\n  \"sessionId\": \"cost-{{$timestamp}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Has price 3.550 pesos', () => {",
+                  "    const r = pm.response.json().response;",
+                  "    pm.expect(r).to.include('3.550');",
+                  "    pm.expect(r).to.include('pesos');",
+                  "});",
+                  "pm.test('Mentions TransMilenio and SITP', () => {",
+                  "    const r = pm.response.json().response;",
+                  "    pm.expect(r).to.include('TransMilenio');",
+                  "    pm.expect(r).to.include('SITP');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Station Query",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/chat",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"estacion heroes\",\n  \"sessionId\": \"st-{{$timestamp}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Contains Heroes station', () => {",
+                  "    const r = pm.response.json().response;",
+                  "    pm.expect(r.toLowerCase()).to.include('roes');",
+                  "});",
+                  "pm.test('Has troncal info', () => {",
+                  "    pm.expect(pm.response.json().response.toLowerCase()).to.include('troncal');",
+                  "});",
+                  "pm.test('Asks to show on map', () => {",
+                  "    pm.expect(pm.response.json().response.toLowerCase()).to.include('mapa');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Congestion",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/chat",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"trafico a las 7\",\n  \"sessionId\": \"cg-{{$timestamp}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Has percentage', () => {",
+                  "    pm.expect(pm.response.json().response).to.include('%');",
+                  "});",
+                  "pm.test('Mentions hour 7', () => {",
+                  "    pm.expect(pm.response.json().response).to.include('7');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "With Context",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/chat",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"que hago\",\n  \"sessionId\": \"ctx-{{$timestamp}}\",\n  \"context\": {\n    \"module\": \"planificar\",\n    \"origin\": \"Suba\"\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Context-aware response', () => {",
+                  "    const r = pm.response.json().response.toLowerCase();",
+                  "    // Should reference planificar module context",
+                  "    pm.expect(r.length).to.be.above(10);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Google OAuth Redirect",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/auth/google"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('302 redirect or 200', () => {",
+                  "    pm.expect([200, 302]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/auth/me"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 with user or 401 unauthorized', () => {",
+                  "    if (pm.response.code === 200) {",
+                  "        const b = pm.response.json();",
+                  "        pm.expect(b).to.have.property('id');",
+                  "        pm.expect(b).to.have.property('name');",
+                  "        pm.expect(b).to.have.property('email');",
+                  "        pm.expect(b).to.have.property('role');",
+                  "    } else {",
+                  "        pm.expect(pm.response.code).to.eql(401);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/refresh"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 401', () => {",
+                  "    pm.expect([200, 401]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/logout"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 201', () => {",
+                  "    pm.expect([200, 201]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Graph — TransMilenio",
+      "item": [
+        {
+          "name": "Get Troncales",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/graph/tm/troncales"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns data object', () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b).to.be.an('object');",
+                  "});",
+                  "pm.test('Response time < 2s', () => {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Estaciones",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/graph/tm/estaciones"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns GeoJSON or array', () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b).to.be.an('object');",
+                  "    // GeoJSON has features, array has length",
+                  "    const hasData = b.features || Array.isArray(b);",
+                  "    pm.expect(hasData).to.not.be.undefined;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Rutas TM",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/graph/tm/rutas"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has routes data', () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b).to.be.an('object');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Graph Stats",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/graph/stats"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has node/edge counts', () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b).to.have.property('nodes');",
+                  "    pm.expect(b).to.have.property('edges');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Heatmap (hora 8)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/graph/heatmap?hour=8"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns heatmap data', () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b).to.be.an('object');",
+                  "});",
+                  "pm.test('Cached response is fast', () => {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(3000);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Nearby Stations",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/graph/nearby?lat=4.65&lng=-74.08&radius=500"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns stations array', () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b).to.be.an('object');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Stations Paginated",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/graph/stations?limit=50&offset=0"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has stations data', () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b).to.be.an('object');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Station by ID",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/graph/stations/1"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 404', () => {",
+                  "    pm.expect([200, 404]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Station Neighbors",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/graph/stations/1/neighbors"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 404', () => {",
+                  "    pm.expect([200, 404]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Graph Edges",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/graph/edges?type=troncal&limit=50"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has edges array', () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b).to.be.an('object');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Compare Hours",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/graph/compare-hours"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 400', () => {",
+                  "    pm.expect([200, 400]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Graph Analysis",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/graph/analysis"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Responds with valid status', () => {",
+                  "    pm.expect([200,201,401,403]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test('Valid JSON if success', () => {",
+                  "    if(pm.response.code < 400) pm.response.to.be.json;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Graph — SITP",
+      "item": [
+        {
+          "name": "Get Paraderos",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/graph/sitp/paraderos"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns paraderos data', () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b).to.be.an('object');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Paraderos Nearby",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/graph/sitp/paraderos/nearby?lat=4.65&lng=-74.08&radius=500"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns nearby paraderos', () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b).to.be.an('object');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Paradero by ID",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/graph/sitp/paraderos/1"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 404', () => {",
+                  "    pm.expect([200, 404]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "SITP Rutas",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/graph/sitp/rutas"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has routes', () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b).to.be.an('object');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "SITP Route Shapes",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/graph/sitp/rutas/shapes"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has GeoJSON shapes', () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b).to.be.an('object');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Graph — Data",
+      "item": [
+        {
+          "name": "Accesibilidad",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/graph/accesibilidad"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has accessibility data', () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b).to.be.an('object');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Rutas Cercanas",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/graph/rutas-cercanas?lat=4.65&lng=-74.08&radius=800"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns rutas array', () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b).to.have.property('rutas');",
+                  "    pm.expect(b.rutas).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Carril Preferencial",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/graph/carril-preferencial"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has GeoJSON or array', () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b).to.be.an('object');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Siniestralidad",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/graph/siniestralidad"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has siniestralidad stats', () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b).to.be.an('object');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Siniestralidad Heatmap",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/graph/siniestralidad/heatmap"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has heatmap points', () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b).to.be.an('object');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Siniestralidad por Localidad",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/graph/siniestralidad/localidad/chapinero"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 404', () => {",
+                  "    pm.expect([200, 404]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test('Has localidad data if found', () => {",
+                  "    if (pm.response.code === 200) {",
+                  "        pm.expect(pm.response.json()).to.be.an('object');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Route Prediction",
+      "item": [
+        {
+          "name": "Predict Route",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/route-prediction",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"origin\": {\n    \"lat\": 4.695,\n    \"lng\": -74.031\n  },\n  \"destination\": {\n    \"lat\": 4.598,\n    \"lng\": -74.076\n  },\n  \"departure_time\": \"2026-07-06T08:00:00\",\n  \"mode\": \"transmilenio\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Route prediction schema', () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b).to.have.property('route_id');",
+                  "    pm.expect(b).to.have.property('total_time_minutes');",
+                  "    pm.expect(b).to.have.property('total_distance_km');",
+                  "    pm.expect(b).to.have.property('cost');",
+                  "    pm.expect(b).to.have.property('mode');",
+                  "    pm.expect(b).to.have.property('risk_segments');",
+                  "    pm.expect(b).to.have.property('overall_risk');",
+                  "    pm.expect(b).to.have.property('stations');",
+                  "    pm.expect(b).to.have.property('safety_score');",
+                  "    pm.expect(b).to.have.property('transfers');",
+                  "    pm.expect(b).to.have.property('estimated_wait_minutes');",
+                  "});",
+                  "pm.test('Valid values', () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b.total_time_minutes).to.be.above(0);",
+                  "    pm.expect(b.total_distance_km).to.be.above(0);",
+                  "    pm.expect(b.safety_score).to.be.within(0, 100);",
+                  "    pm.expect(['low','medium','moderate','high','critical']).to.include(b.overall_risk);",
+                  "});",
+                  "pm.test('Cost is 3.550 for TM', () => {",
+                  "    pm.expect(pm.response.json().cost).to.include('3.550');",
+                  "});",
+                  "pm.test('Has stations', () => {",
+                  "    pm.expect(pm.response.json().stations.length).to.be.above(1);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Predict Alternatives",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/route-prediction/alternatives",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"origin\": {\n    \"lat\": 4.695,\n    \"lng\": -74.031\n  },\n  \"destination\": {\n    \"lat\": 4.598,\n    \"lng\": -74.076\n  },\n  \"departure_time\": \"2026-07-06T08:00:00\",\n  \"mode\": \"vehiculo\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Returns array of routes', () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b).to.be.an('array');",
+                  "    if (b.length > 0) {",
+                  "        pm.expect(b[0]).to.have.property('route_id');",
+                  "        pm.expect(b[0]).to.have.property('total_time_minutes');",
+                  "        pm.expect(b[0]).to.have.property('cost');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Route Alerts",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/route-prediction/alerts"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns alerts', () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b).to.be.an('object');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "AI — Predictions",
+      "item": [
+        {
+          "name": "AI Predict Route",
+          "request": {
+            "method": "POST",
+            "url": "{{ai_url}}/predictions/route",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"origin\": {\n    \"lat\": 4.695,\n    \"lng\": -74.031\n  },\n  \"destination\": {\n    \"lat\": 4.598,\n    \"lng\": -74.076\n  },\n  \"departure_time\": \"2026-07-06T08:00:00\",\n  \"mode\": \"transmilenio\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has route_id', () => {",
+                  "    pm.expect(pm.response.json()).to.have.property('route_id');",
+                  "});",
+                  "pm.test('Has stations array', () => {",
+                  "    pm.expect(pm.response.json().stations).to.be.an('array');",
+                  "});",
+                  "pm.test('Time > 0', () => {",
+                  "    pm.expect(pm.response.json().total_time_minutes).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "AI Chat Direct",
+          "request": {
+            "method": "POST",
+            "url": "{{ai_url}}/agent/chat",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"hola\",\n  \"session_id\": \"ai-{{$timestamp}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Response schema', () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b).to.have.property('response');",
+                  "    pm.expect(b).to.have.property('sources');",
+                  "    pm.expect(b).to.have.property('session_id');",
+                  "    pm.expect(b).to.have.property('actions');",
+                  "});",
+                  "pm.test('Contains MoviBot greeting', () => {",
+                  "    pm.expect(pm.response.json().response).to.include('MoviBot');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "AI Clear Session",
+          "request": {
+            "method": "DELETE",
+            "url": "{{ai_url}}/agent/chat/test-session"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns cleared status', () => {",
+                  "    pm.expect(pm.response.json().status).to.eql('cleared');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Favorites (Auth Required)",
+      "item": [
+        {
+          "name": "Get Favorites",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/favorites"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 401', () => {",
+                  "    pm.expect([200, 401]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test('Array if authenticated', () => {",
+                  "    if (pm.response.code === 200) {",
+                  "        pm.expect(pm.response.json()).to.be.an('array');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Add Favorite",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/favorites",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stationId\": \"heroes\",\n  \"type\": \"station\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('201 or 401', () => {",
+                  "    pm.expect([201, 401]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test('Returns favorite if auth', () => {",
+                  "    if (pm.response.code === 201) {",
+                  "        pm.expect(pm.response.json()).to.have.property('id');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Remove Favorite",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/favorites/1"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 401 or 404', () => {",
+                  "    pm.expect([200, 401, 404]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Notifications (Auth Required)",
+      "item": [
+        {
+          "name": "Get Notifications",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/notifications"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 401', () => {",
+                  "    pm.expect([200, 401]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test('Array if authenticated', () => {",
+                  "    if (pm.response.code === 200) {",
+                  "        pm.expect(pm.response.json()).to.be.an('array');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unread Count",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/notifications/unread-count"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 401', () => {",
+                  "    pm.expect([200, 401]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test('Number if authenticated', () => {",
+                  "    if (pm.response.code === 200) {",
+                  "        pm.expect(pm.response.json()).to.have.property('count');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mark Read",
+          "request": {
+            "method": "PATCH",
+            "url": "{{base_url}}/notifications/1/read"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 401 or 404', () => {",
+                  "    pm.expect([200, 401, 404]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mark All Read",
+          "request": {
+            "method": "PATCH",
+            "url": "{{base_url}}/notifications/read-all"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 401', () => {",
+                  "    pm.expect([200, 401]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete One",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/notifications/1"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 401 or 404', () => {",
+                  "    pm.expect([200, 401, 404]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Clear All",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/notifications"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 401', () => {",
+                  "    pm.expect([200, 401]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Saved Routes (Auth Required)",
+      "item": [
+        {
+          "name": "Get Saved Routes",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/saved-routes"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 401', () => {",
+                  "    pm.expect([200, 401]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test('Array if auth', () => {",
+                  "    if (pm.response.code === 200) {",
+                  "        pm.expect(pm.response.json()).to.be.an('array');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Save Route",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/saved-routes",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Casa al trabajo\",\n  \"origin\": {\n    \"lat\": 4.695,\n    \"lng\": -74.031\n  },\n  \"destination\": {\n    \"lat\": 4.598,\n    \"lng\": -74.076\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('201 or 401', () => {",
+                  "    pm.expect([201, 401]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test('Returns saved route if auth', () => {",
+                  "    if (pm.response.code === 201) {",
+                  "        const b = pm.response.json();",
+                  "        pm.expect(b).to.have.property('id');",
+                  "        pm.expect(b).to.have.property('name');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Saved Route",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/saved-routes/1"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 401 or 404', () => {",
+                  "    pm.expect([200, 401, 404]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Preferences (Auth Required)",
+      "item": [
+        {
+          "name": "Get Preferences",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/preferences"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 401', () => {",
+                  "    pm.expect([200, 401]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test('Object if authenticated', () => {",
+                  "    if (pm.response.code === 200) {",
+                  "        const b = pm.response.json();",
+                  "        pm.expect(b).to.be.an('object');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Preferences",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/preferences",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"theme\": \"dark\",\n  \"language\": \"es\",\n  \"notifications\": true\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 401', () => {",
+                  "    pm.expect([200, 401]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Admin (Auth + Role Required)",
+      "item": [
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/admin/users"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 401/403', () => {",
+                  "    pm.expect([200, 401, 403]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test('Array if admin', () => {",
+                  "    if (pm.response.code === 200) {",
+                  "        pm.expect(pm.response.json()).to.be.an('array');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Change Role",
+          "request": {
+            "method": "PATCH",
+            "url": "{{base_url}}/admin/users/1/role",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"admin\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 401 or 403', () => {",
+                  "    pm.expect([200, 401, 403]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Change Status",
+          "request": {
+            "method": "PATCH",
+            "url": "{{base_url}}/admin/users/1/status",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"active\": true\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 401 or 403', () => {",
+                  "    pm.expect([200, 401, 403]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "User Permissions",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/admin/users/1/permissions"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 401 or 403', () => {",
+                  "    pm.expect([200, 401, 403]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Set Permissions",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/admin/users/1/permissions",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"permissions\": [\n    \"chat\",\n    \"routes\"\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 401 or 403', () => {",
+                  "    pm.expect([200, 401, 403]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Roles",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/admin/roles"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 401/403', () => {",
+                  "    pm.expect([200, 401, 403]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test('Array if admin', () => {",
+                  "    if (pm.response.code === 200) {",
+                  "        pm.expect(pm.response.json()).to.be.an('array');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Role",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/admin/roles",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"viewer\",\n  \"description\": \"Read only\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('201 or 401 or 403', () => {",
+                  "    pm.expect([201, 401, 403]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Role",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/admin/roles/1",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"viewer\",\n  \"description\": \"Updated\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 401 or 403', () => {",
+                  "    pm.expect([200, 401, 403]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Role",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/admin/roles/1"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 401 or 403', () => {",
+                  "    pm.expect([200, 401, 403]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Set Role Permissions",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/admin/roles/1/permissions",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"permissions\": [\n    \"chat\"\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 401 or 403', () => {",
+                  "    pm.expect([200, 401, 403]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Permissions",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/admin/permissions"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 401 or 403', () => {",
+                  "    pm.expect([200, 401, 403]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test('Array if authorized', () => {",
+                  "    if (pm.response.code === 200) {",
+                  "        pm.expect(pm.response.json()).to.be.an('array');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Permission",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/admin/permissions",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"manage_users\",\n  \"description\": \"Can manage users\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('201 or 401 or 403', () => {",
+                  "    pm.expect([201, 401, 403]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Permission",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/admin/permissions/1"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 401 or 403', () => {",
+                  "    pm.expect([200, 401, 403]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Routes",
+      "item": [
+        {
+          "name": "List Routes",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/routes"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns routes array', () => {",
+                  "    pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Route by ID",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/routes/1"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 404', () => {",
+                  "    pm.expect([200, 404]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Routes by Station",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/routes/station/heroes"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 404', () => {",
+                  "    pm.expect([200, 404]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Stations",
+      "item": [
+        {
+          "name": "List Stations",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/stations"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns stations', () => {",
+                  "    pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Station by ID",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/stations/1"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 404', () => {",
+                  "    pm.expect([200, 404]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Station",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/stations",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test\",\n  \"lat\": 4.65,\n  \"lng\": -74.08,\n  \"troncal\": \"Caracas\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('201 or 401 or 403', () => {",
+                  "    pm.expect([201, 401, 403]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🔄 E2E Flows (sequential)",
+      "item": [
+        {
+          "name": "Flow: Chat Conversation",
+          "item": [
+            {
+              "name": "1. Greeting",
+              "request": {
+                "method": "POST",
+                "url": "{{base_url}}/chat",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"message\": \"hola\", \"sessionId\": \"flow-chat-{{$timestamp}}\"}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Greeting OK', () => {",
+                      "    pm.response.to.have.status(201);",
+                      "    pm.expect(pm.response.json().response).to.include('MoviBot');",
+                      "});",
+                      "pm.environment.set('flow_session', pm.response.json().sessionId);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "2. Ask Route",
+              "request": {
+                "method": "POST",
+                "url": "{{base_url}}/chat",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"message\": \"ir de suba a chapinero\", \"sessionId\": \"{{flow_session}}\"}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Asks confirmation', () => {",
+                      "    pm.response.to.have.status(201);",
+                      "    pm.expect(pm.response.json().response.toLowerCase()).to.include('quieres');",
+                      "});",
+                      "pm.test('No actions yet', () => {",
+                      "    pm.expect(pm.response.json().actions).to.have.length(0);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "3. Confirm",
+              "request": {
+                "method": "POST",
+                "url": "{{base_url}}/chat",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"message\": \"si dale\", \"sessionId\": \"{{flow_session}}\"}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Confirms and returns action', () => {",
+                      "    pm.response.to.have.status(201);",
+                      "    const b = pm.response.json();",
+                      "    pm.expect(b.actions.length).to.be.above(0);",
+                      "    pm.expect(b.actions[0].type).to.eql('plan_route');",
+                      "    pm.expect(b.actions[0].data.origin).to.eql('suba');",
+                      "    pm.expect(b.actions[0].data.destination).to.eql('chapinero');",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "4. Ask Cost",
+              "request": {
+                "method": "POST",
+                "url": "{{base_url}}/chat",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"message\": \"cuanto cuesta\", \"sessionId\": \"{{flow_session}}\"}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Returns price', () => {",
+                      "    pm.response.to.have.status(201);",
+                      "    pm.expect(pm.response.json().response).to.include('3.550');",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "5. Say Thanks",
+              "request": {
+                "method": "POST",
+                "url": "{{base_url}}/chat",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"message\": \"gracias\", \"sessionId\": \"{{flow_session}}\"}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Friendly response', () => {",
+                      "    pm.response.to.have.status(201);",
+                      "    pm.expect(pm.response.json().response.length).to.be.above(5);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Flow: Route Prediction",
+          "item": [
+            {
+              "name": "1. Predict TM Route",
+              "request": {
+                "method": "POST",
+                "url": "{{base_url}}/route-prediction",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"origin\": {\"lat\": 4.695, \"lng\": -74.031}, \"destination\": {\"lat\": 4.598, \"lng\": -74.076}, \"departure_time\": \"2026-07-06T08:00:00\", \"mode\": \"transmilenio\"}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Route predicted', () => {",
+                      "    pm.response.to.have.status(201);",
+                      "    const b = pm.response.json();",
+                      "    pm.expect(b.total_time_minutes).to.be.above(0);",
+                      "    pm.expect(b.stations.length).to.be.above(1);",
+                      "    pm.expect(b.cost).to.include('3.550');",
+                      "});",
+                      "pm.environment.set('last_route_id', pm.response.json().route_id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "2. Predict Vehicle Alternatives",
+              "request": {
+                "method": "POST",
+                "url": "{{base_url}}/route-prediction/alternatives",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"origin\": {\"lat\": 4.695, \"lng\": -74.031}, \"destination\": {\"lat\": 4.598, \"lng\": -74.076}, \"departure_time\": \"2026-07-06T08:00:00\", \"mode\": \"vehiculo\"}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Alternatives returned', () => {",
+                      "    pm.response.to.have.status(201);",
+                      "    const b = pm.response.json();",
+                      "    pm.expect(b).to.be.an('array');",
+                      "    pm.expect(b.length).to.be.above(0);",
+                      "});",
+                      "pm.test('Each alternative has required fields', () => {",
+                      "    const routes = pm.response.json();",
+                      "    routes.forEach(r => {",
+                      "        pm.expect(r).to.have.property('route_id');",
+                      "        pm.expect(r).to.have.property('total_time_minutes');",
+                      "        pm.expect(r).to.have.property('cost');",
+                      "        pm.expect(r).to.have.property('risk_segments');",
+                      "    });",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "3. Check Alerts",
+              "request": {
+                "method": "GET",
+                "url": "{{base_url}}/route-prediction/alerts"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Alerts OK', () => {",
+                      "    pm.response.to.have.status(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Flow: Graph Data",
+          "item": [
+            {
+              "name": "1. Get Stats",
+              "request": {
+                "method": "GET",
+                "url": "{{base_url}}/graph/stats"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Stats OK', () => {",
+                      "    pm.response.to.have.status(200);",
+                      "    pm.expect(pm.response.json()).to.have.property('nodes');",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "2. Get Heatmap",
+              "request": {
+                "method": "GET",
+                "url": "{{base_url}}/graph/heatmap?hour=8"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Heatmap OK', () => {",
+                      "    pm.response.to.have.status(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "3. Get Nearby",
+              "request": {
+                "method": "GET",
+                "url": "{{base_url}}/graph/nearby?lat=4.65&lon=-74.08&radius_km=1&limit=5"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Nearby stations', () => {",
+                      "    pm.response.to.have.status(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "4. Get Rutas Cercanas",
+              "request": {
+                "method": "GET",
+                "url": "{{base_url}}/graph/rutas-cercanas?lat=4.65&lng=-74.08&radius=800"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Rutas cercanas', () => {",
+                      "    pm.response.to.have.status(200);",
+                      "    pm.expect(pm.response.json()).to.have.property('rutas');",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

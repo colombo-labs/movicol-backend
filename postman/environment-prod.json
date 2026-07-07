@@ -1,0 +1,10 @@
+{
+  "id": "env-prod",
+  "name": "MoviCol — Production",
+  "values": [
+    { "key": "base_url", "value": "https://api.movicol.colombo-labs.dev", "enabled": true },
+    { "key": "ai_url", "value": "https://ai.movicol.colombo-labs.dev", "enabled": true },
+    { "key": "access_token", "value": "", "enabled": true },
+    { "key": "session_id", "value": "postman-prod-{{$timestamp}}", "enabled": true }
+  ]
+}
