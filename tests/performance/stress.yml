@@ -1,0 +1,48 @@
+# MoviCol Backend — Stress Test (Artillery)
+# Run: artillery run tests/performance/stress.yml
+# This pushes the system to breaking point
+
+config:
+  target: "http://localhost:3001"
+  phases:
+    # Quick ramp to high load
+    - duration: 10
+      arrivalRate: 20
+      name: "Initial burst"
+    # Extreme load
+    - duration: 60
+      arrivalRate: 100
+      rampTo: 200
+      name: "Stress ramp (100→200 req/s)"
+    # Sustained extreme
+    - duration: 30
+      arrivalRate: 200
+      name: "Peak stress (200 req/s)"
+    # Spike
+    - duration: 10
+      arrivalRate: 500
+      name: "Spike (500 req/s)"
+    # Recovery
+    - duration: 10
+      arrivalRate: 20
+      name: "Recovery"
+
+  # Thresholds — test fails if these are exceeded
+  ensure:
+    thresholds:
+      - http.response_time.p95: 3000    # p95 < 3s
+      - http.response_time.p99: 5000    # p99 < 5s
+      - http.codes.5xx: 0               # No 5xx errors allowed
+
+scenarios:
+  - name: "Mixed load"
+    flow:
+      - post:
+          url: "/chat"
+          json:
+            message: "{{ $randomItem('hola', 'trafico', 'ruta a suba', 'estacion heroes', 'cuanto cuesta') }}"
+            sessionId: "stress-{{ $randomNumber(1, 5000) }}"
+      - get:
+          url: "/health"
+      - get:
+          url: "/graph/tm/estaciones"
