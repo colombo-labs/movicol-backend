@@ -34,10 +34,7 @@ export class ChatService {
       };
     }
 
-    const result = await this.httpClient.post<AiChatResponse>(
-      '/agent/chat',
-      payload,
-    );
+    const result = await this.httpClient.post<AiChatResponse>('/agent/chat', payload);
 
     return {
       response: result.response,

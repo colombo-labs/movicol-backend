@@ -61,6 +61,10 @@ describe('GraphController (e2e-like unit)', () => {
     return request(app.getHttpServer())
       .post('/chat')
       .send({ message: '', sessionId: 'test' })
-      .expect(400);
+      .expect(400)
+      .expect((res) => {
+        expect(res.body.statusCode).toBe(400);
+        expect(res.body.message).toBeDefined();
+      });
   });
 });
