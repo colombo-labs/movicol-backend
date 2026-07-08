@@ -35,14 +35,14 @@ export class AuthController {
     res.cookie('access_token', accessToken, {
       httpOnly: false,
       secure: !!isProduction,
-      sameSite: 'lax',
+      sameSite: isProduction ? 'none' : 'lax',
       maxAge: 15 * 60 * 1000,
     });
 
     res.cookie('refresh_token', refreshToken, {
       httpOnly: true,
       secure: !!isProduction,
-      sameSite: 'lax',
+      sameSite: isProduction ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -52,6 +52,7 @@ export class AuthController {
   @Public()
   @Post('refresh')
   async refresh(@Req() req: Request, @Res() res: Response) {
+    const isProduction = process.env.NODE_ENV !== 'development' || process.env.RAILWAY_ENVIRONMENT;
     const token = req.cookies?.['refresh_token'];
     if (!token) throw new UnauthorizedException('No refresh token');
 
@@ -60,15 +61,15 @@ export class AuthController {
 
     res.cookie('access_token', result.accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: !!isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
       maxAge: 15 * 60 * 1000,
     });
 
     res.cookie('refresh_token', result.refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: !!isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
       path: '/auth/refresh',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
