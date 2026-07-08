@@ -30,16 +30,18 @@ export class AuthController {
 
     const frontendUrl = this.config.get('FRONTEND_URL', 'http://localhost:3000');
 
+    const isProduction = process.env.NODE_ENV !== 'development' || process.env.RAILWAY_ENVIRONMENT;
+
     res.cookie('access_token', accessToken, {
       httpOnly: false,
-      secure: false,
+      secure: !!isProduction,
       sameSite: 'lax',
       maxAge: 15 * 60 * 1000,
     });
 
     res.cookie('refresh_token', refreshToken, {
       httpOnly: true,
-      secure: false,
+      secure: !!isProduction,
       sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
