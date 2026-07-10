@@ -32,12 +32,7 @@ export class IncidentsService {
     return (result.affected ?? 0) > 0;
   }
 
-  async findNearby(
-    lat: number,
-    lng: number,
-    radiusKm: number,
-    hours: number,
-  ): Promise<Incident[]> {
+  async findNearby(lat: number, lng: number, radiusKm: number, hours: number): Promise<Incident[]> {
     const since = new Date(Date.now() - hours * 3600 * 1000);
     const delta = radiusKm / 111.0;
     return this.incidentRepo
@@ -105,9 +100,7 @@ export class IncidentsService {
       });
     }
 
-    notifications.sort(
-      (a, b) => b.created_at.getTime() - a.created_at.getTime(),
-    );
+    notifications.sort((a, b) => b.created_at.getTime() - a.created_at.getTime());
     return notifications.slice(0, 30);
   }
 
