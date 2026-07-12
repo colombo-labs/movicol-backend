@@ -36,7 +36,7 @@ export class User {
   @ManyToOne(() => Role, { eager: true })
   role: Role;
 
-  @Column({ default: 1 })
+  @Column({ default: 2 })
   roleId: number;
 
   @OneToMany(() => UserFavorite, (fav) => fav.user)

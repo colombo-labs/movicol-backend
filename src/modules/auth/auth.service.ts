@@ -36,7 +36,7 @@ export class AuthService {
         email: profile.email,
         name: profile.name,
         avatarUrl: profile.avatarUrl || undefined,
-        roleId: 1,
+        roleId: 2, // Default: user role (not admin)
       });
       user = await this.userRepo.save(user);
     }

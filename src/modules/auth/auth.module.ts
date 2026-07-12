@@ -25,6 +25,8 @@ import { UserFavorite } from './entities/user-favorite.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { CommonModule } from '../../common/common.module';
 
+import { RoleSeedService } from './role-seed.service';
+
 @Module({
   imports: [
     CommonModule,
@@ -63,6 +65,7 @@ import { CommonModule } from '../../common/common.module';
     JwtAuthGuard,
     PermissionsGuard,
     UserGateway,
+    RoleSeedService,
   ],
   exports: [AuthService, JwtAuthGuard, PermissionsGuard, UserGateway],
 })
