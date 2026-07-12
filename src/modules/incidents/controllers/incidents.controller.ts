@@ -34,7 +34,7 @@ export class IncidentsController {
     return this.service.findNearby(+lat, +lng, +radiusKm, +hours);
   }
 
-  @Get('notifications')
+  @Get('feed/notifications')
   @ApiOperation({ summary: 'Get unified notifications (incidents + alerts)' })
   getNotifications(@Query('hours') hours = 6) {
     return this.service.getNotifications(+hours);

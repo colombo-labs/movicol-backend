@@ -11,17 +11,17 @@ export class RoutePredictionService {
   constructor(private readonly httpClient: HttpClientService) {}
 
   async predictRoute(dto: RoutePredictionRequestDto): Promise<RoutePredictionResponseDto> {
-    return this.httpClient.post<RoutePredictionResponseDto>('/api/v1/predict-route', dto);
+    return this.httpClient.post<RoutePredictionResponseDto>('/route-prediction', dto);
   }
 
   async predictAlternatives(dto: RoutePredictionRequestDto): Promise<RoutePredictionResponseDto[]> {
     return this.httpClient.post<RoutePredictionResponseDto[]>(
-      '/api/v1/predict-route/alternatives',
+      '/route-prediction/alternatives',
       dto,
     );
   }
 
   async getAlerts(): Promise<any> {
-    return this.httpClient.get('/api/v1/predict-route/alerts');
+    return this.httpClient.get('/route-prediction/alerts');
   }
 }

@@ -54,7 +54,7 @@ describe('RoutePredictionController', () => {
       });
 
       expect(result).toEqual(mockResponse);
-      expect(httpClient.post).toHaveBeenCalledWith('/api/v1/predict-route', expect.any(Object));
+      expect(httpClient.post).toHaveBeenCalledWith('/route-prediction', expect.any(Object));
     });
 
     it('should predict a transmilenio route', async () => {
