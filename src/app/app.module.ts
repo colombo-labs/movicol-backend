@@ -16,6 +16,7 @@ import { PredictionsModule } from '../modules/predictions/predictions.module';
 import { RoutePredictionModule } from '../modules/route-prediction/route-prediction.module';
 import { RoutesModule } from '../modules/routes/routes.module';
 import { StationsModule } from '../modules/stations/stations.module';
+import { IncidentsModule } from '../modules/incidents/incidents.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { StationsModule } from '../modules/stations/stations.module';
     RoutesModule,
     StationsModule,
     ChatModule,
+    IncidentsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }],
 })
