@@ -141,29 +141,37 @@ export class GraphController {
       this.arcgis.getTmEstaciones(),
     ]);
 
-    // Build stations grouped by troncal
-    const stationsByTroncal: Record<string, any[]> = {};
-    for (const f of estacionesGeo.features ?? []) {
+    // Build station list with coords
+    const allStations = (estacionesGeo.features ?? []).map((f: any) => {
       const p = f.properties ?? {};
-      const troncal = (p.troncal_es || '').toLowerCase().trim();
-      if (!stationsByTroncal[troncal]) stationsByTroncal[troncal] = [];
-      const [lng, lat] = (f.geometry as any)?.coordinates ?? [0, 0];
-      stationsByTroncal[troncal].push({
-        nombre: p.nombre_est || '',
-        lat,
-        lon: lng,
-      });
-    }
+      const [lng, lat] = f.geometry?.coordinates ?? [0, 0];
+      return { nombre: p.nombre_est || '', lat, lon: lng };
+    });
 
     const rutas = geo.features.map((f: any) => {
       const p = f.properties ?? {};
-      const coords = f.geometry?.coordinates?.map((c: number[]) => [c[1], c[0]]) ?? [];
-      const routeName = (p.nombre_rut || p.route_name || '').toLowerCase();
-      // Match stations by troncal name similarity
-      const matchedStations = Object.entries(stationsByTroncal).find(
-        ([troncal]) =>
-          routeName.includes(troncal) || troncal.includes(routeName.split('-')[0]?.trim()),
-      );
+      const coords: [number, number][] =
+        f.geometry?.coordinates?.map((c: number[]) => [c[1], c[0]]) ?? [];
+
+      // Match stations within 300m of any route coordinate (sampled every 10 points)
+      const sampledCoords = coords.filter((_: any, i: number) => i % 10 === 0);
+      const matched: { nombre: string; lat: number; lon: number }[] = [];
+      const seen = new Set<string>();
+
+      for (const stn of allStations) {
+        if (seen.has(stn.nombre)) continue;
+        for (const [lat, lon] of sampledCoords) {
+          const dist = Math.sqrt(
+            Math.pow((stn.lat - lat) * 111000, 2) + Math.pow((stn.lon - lon) * 111000 * 0.85, 2),
+          );
+          if (dist < 300) {
+            matched.push(stn);
+            seen.add(stn.nombre);
+            break;
+          }
+        }
+      }
+
       return {
         codigo: p.route_name || '',
         nombre: p.nombre_rut || p.route_name || '',
@@ -176,7 +184,7 @@ export class GraphController {
         horario_dom: p.horario_do || '',
         estado: p.estado_rut || 'OPERATIVA',
         coords,
-        estaciones: matchedStations?.[1] ?? [],
+        estaciones: matched,
       };
     });
     return { total: rutas.length, rutas };
