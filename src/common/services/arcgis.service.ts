@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import type { Feature, FeatureCollection } from 'geojson';
 
 import { RedisService } from './redis.service';
@@ -24,10 +24,26 @@ const DATASETS = {
 const CACHE_TTL = 86400;
 
 @Injectable()
-export class ArcGisService {
+export class ArcGisService implements OnModuleInit {
   private readonly logger = new Logger(ArcGisService.name);
 
   constructor(private readonly redis: RedisService) {}
+
+  async onModuleInit() {
+    // Pre-warm critical caches in background (don't block startup)
+    this.warmCache().catch((e) => this.logger.warn(`Cache warm-up failed: ${e.message}`));
+  }
+
+  private async warmCache() {
+    this.logger.log('Warming ArcGIS caches in background...');
+    const start = Date.now();
+    await Promise.allSettled([
+      this.getParaderosRuta(),
+      this.getSitpParaderos(),
+      this.getTmEstaciones(),
+    ]);
+    this.logger.log(`ArcGIS caches warmed in ${Date.now() - start}ms`);
+  }
 
   /** Fetch all features from an ArcGIS FeatureServer (handles pagination) */
   private async fetchAll(endpoint: string): Promise<FeatureCollection> {
